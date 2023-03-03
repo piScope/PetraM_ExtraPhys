@@ -41,13 +41,13 @@ data = (('B', VtableElement('bext', type='array',
                                  default="0.9e19, 0.1e19",
                                  tip="ion densities")),
         ('mass', VtableElement('mass', type='array',
-                               guilabel='ion masses',
-                               default="m_h, m_d",
+                               guilabel='ion masses(/Da)',
+                               default="2, 1",
                                no_func=True,
                                tip="mass. use  m_h, m_d, m_t, or u")),
         ('charge_q', VtableElement('charge_q', type='array',
                                    guilabel='ion charges(/q)',
-                                   default="1, 2",
+                                   default="1, 1",
                                    no_func=True,
                                    tip="ion charges normalized by q(=1.60217662e-19 [C])")),)
 
@@ -99,7 +99,8 @@ class EM3D_ColdPlasma(EM3D_Domain):
         B, dens_e, t_e, dens_i, masses, charges = self.vt.make_value_or_expression(
             self)
 
-        masses = np.array(masses, dtype=np.float64)
+        Da = 1.66053906660e-27      # atomic mass unit (u or Dalton) (kg)        
+        masses = np.array(masses, dtype=np.float64) * Da
         charges = np.array(charges, dtype=np.int64)
 
         num_ions = len(masses)
