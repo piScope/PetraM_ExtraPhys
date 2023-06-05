@@ -37,6 +37,13 @@ class NonlocalJ1D_DefDomain(Domain, Phys):
     def import_panel1_value(self, v):
         pass
 
+    def count_x_terms(self):
+        return 0
+    def count_y_terms(self):
+        return 0
+    def count_z_terms(self):
+        return 0
+
 class NonlocalJ1D_DefBdry(Bdry, Phys):
     can_delete = False
     is_essential = False
@@ -84,36 +91,71 @@ class NonlocalJ1D_DefPair(Pair, Phys):
         return v
 
 class NonlocalJ1D(PhysModule):
-    dim_fixed = False
+    dim_fixed = True
     def __init__(self, **kwargs):
         super(NonlocalJ1D, self).__init__()
         Phys.__init__(self)
         self['Domain'] = NonlocalJ1D_DefDomain()
         self['Boundary'] = NonlocalJ1D_DefBdry()
 
+    @property        
+    def nxterms(self):
+        if "Domain" not in self:
+            return 0
+        return np.sum([x.count_x_terms()
+                       for x in self["Domain"].walk_enabled()])
+
+    @property    
+    def nyterms(self):
+        if "Domain" not in self:
+            return 0
+        return np.sum([x.count_y_terms()
+                       for x in self["Domain"].walk_enabled()]) 
+    @property
+    def nzterms(self):
+        if "Domain" not in self:
+            return 0
+        return np.sum([x.count_z_terms()
+                       for x in self["Domain"].walk_enabled()])
+
+    @property    
+    def nterms(self):
+        return self.nxterms + self.nyterms + self.nzterms
+    
     @property
     def dep_vars(self):
-        ret = ["phi"+self.dep_vars_suffix,
-               "V"+self.dep_vars_suffix]
+        base = self.dep_vars_base_txt
+        ret = []
+        nterms = self.nxterms
+        if nterms > 0:
+           ret.append(base+self.dep_vars_suffix + "x")
+           for i in range(nterms):
+               ret.append(base+self.dep_vars_suffix+"x_"+str(i+1))
+        nterms = self.nyterms
+        if nterms > 0:
+           ret.append(base+self.dep_vars_suffix + "y")
+           for i in range(nterms):                  
+               ret.append(base+self.dep_vars_suffix+"y_"+str(i+1))
+        nterms = self.nzterms
+        if nterms > 0:
+           ret.append(base+self.dep_vars_suffix + "z")
+           for i in range(nterms):                                     
+               ret.append(base+self.dep_vars_suffix+"z_"+str(i+1))
+
         return ret
 
     @property
     def dep_vars_base(self):
-        val = self.dep_vars_base_txt.split(',')[0]
-        return val
-
-    @property
-    def dep_vars0(self):
         val = self.dep_vars_base_txt.split(',')
-        return [x + self.dep_vars_suffix for x in val]
-
+        return val
+    
     @property
     def der_vars(self):
         return []
 
     @property
     def vdim(self):
-        return [1, 1]
+        return [1] * self.nterms
 
     @vdim.setter
     def vdim(self, val):
@@ -126,43 +168,38 @@ class NonlocalJ1D(PhysModule):
         ND
         RT
         '''
-        values = ['L2', 'H1']
+        values = ['H1'] * (self.nterms)
         return values[idx]
 
     def get_fec(self):
         v = self.dep_vars
-        return [(v[0], 'L2_FECollection'),
-                (v[1], 'H1_FECollection'), ]
+        return [(vv, 'H1_FECollection') for vv in v]
 
     def postprocess_after_add(self, engine):
         try:
             sdim = engine.meshes[0].SpaceDimension()
         except:
             return
-        if sdim == 3:
-            self.ind_vars = 'x, y, z'
-            self.ndim = 3
-        elif sdim == 2:
-            self.ind_vars = 'x, y'
-            self.ndim = 2
-        elif sdim == 1:
+
+        if sdim == 1:
             self.ind_vars = 'x'
             self.ndim = 1
         else:
-            pass
+            import warnings
+            warnings.warn("Mesh should be 1D mesh for this model")
 
     def is_complex(self):
         return self.is_complex_valued
 
     def attribute_set(self, v):
         v = super(NonlocalJ1D, self).attribute_set(v)
-        v["element"] = 'L2_FECollection, H1_FECollection'
-        v["dim"] = 2
-        v["ind_vars"] = 'x, y, z'
+        v["element"] = "H1_FECollection * "+str(self.nterms)
+        v["dim"] = 1
+        v["ind_vars"] = 'x'
         v["dep_vars_suffix"] = ''
-        v["dep_vars_base_txt"] = 'Vsh, Fmag'
-        v["is_complex_valued"] = False
-        v["generate_grad_fespace"] = False
+        v["dep_vars_base_txt"] = 'Jnl'
+        v["is_complex_valued"] = True
+
         return v
 
     def panel1_param(self):
@@ -171,23 +208,29 @@ class NonlocalJ1D(PhysModule):
         import wx
         panels = super(NonlocalJ1D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
+        c = pv_panel_param(self, "EM3D1 model")
+        
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
-            a, b,
+            a,
             ["derived vars.", ','.join(self.der_vars), 2, {}],
             ["predefined ns vars.", txt_predefined, 2, {}],
-            ["generate vector", self.generate_grad_fespace, 3, {"text": ' '}], ])
+            c,])
+
         return panels
 
     def get_panel1_value(self):
-        names = self.dep_vars_base_txt
+        names  = ', '.join(self.dep_vars)
         names2 = ', '.join(self.der_vars)
         val = super(NonlocalJ1D, self).get_panel1_value()
 
+        from petram.utils import pv_get_gui_value
+        gui_value, self.paired_var = pv_get_gui_value(self, self.paired_var)
+
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
-                    names, names2, txt_predefined,
-                    self.generate_grad_fespace])
+                    names, name2, txt_predefined, gui_value])
+
         return val
 
     def import_panel1_value(self, v):
@@ -197,20 +240,23 @@ class NonlocalJ1D(PhysModule):
         self.ind_vars = str(v[0])
         self.is_complex_valued = False
         self.dep_vars_suffix = str(v[1])
-        self.element = "H1_FECollection"
+        self.element = "H1_FECollection * "+str(self.nterms)
         self.dep_vars_base_txt = ','.join(
             [x.strip() for x in str(v[2]).split(',')])
-        self.generate_grad_fespace = bool(v[5])
+
+        from petram.utils import pv_from_gui_value
+        self.paired_var = pv_from_gui_value(self, v[-1])
+
         return True
 
-    '''
+
     def get_possible_domain(self):
-        from petram.phys.rfsheath3d.wall import NonlocalJ1D_Asymtptic
+        from petram.phys.nonlocalj.jxx import NonlocalJ1D_Jxx
         doms = super(NonlocalJ1D, self).get_possible_domain()
-        doms.extend(NonlocalJ1D_Asymtptic)
+        doms.extend(NonlocalJ1D_Jxx)
 
         return doms
-    '''
+
     '''
     def get_possible_bdry(self):
         from petram.phys.rfsheath3d.wall import NonlocalJ1D_Wall
