@@ -17,12 +17,11 @@ dprint1, dprint2, dprint3 = debug.init_dprints('RFSheath3D_Model')
 model_basename = 'RFsheath3D'
 
 try:
-    import rfsheath_subroutines
+    import petram.phys.rfsheath3d.rfsheath3d_subs
 except ImportError:
     import petram.mfem_model as mm
     if mm.has_addon_access not in ["any", "rfsheath"]:
         sys.modules[__name__].dependency_invalid = True
-
 
 class RFsheath3D_DefDomain(Domain, Phys):
     can_delete = False

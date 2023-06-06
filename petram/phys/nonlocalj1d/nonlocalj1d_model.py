@@ -23,7 +23,8 @@ try:
 except:
     import petram.mfem_model as mm
     if mm.has_addon_access not in ["any", "nonlocalj"]:
-        sys.modules[__name__].dependency_invalid = True        
+        sys.modules[__name__].dependency_invalid = True
+
 
 class NonlocalJ1D_DefDomain(Domain, Phys):
     can_delete = False
@@ -39,10 +40,13 @@ class NonlocalJ1D_DefDomain(Domain, Phys):
 
     def count_x_terms(self):
         return 0
+
     def count_y_terms(self):
         return 0
+
     def count_z_terms(self):
         return 0
+
 
 class NonlocalJ1D_DefBdry(Bdry, Phys):
     can_delete = False
@@ -61,6 +65,7 @@ class NonlocalJ1D_DefBdry(Bdry, Phys):
     def get_possible_bdry(self):
         return []
 
+
 class NonlocalJ1D_DefPoint(Point, Phys):
     can_delete = False
     is_essential = False
@@ -74,6 +79,7 @@ class NonlocalJ1D_DefPoint(Point, Phys):
         v['sel_readonly'] = False
         v['sel_index'] = ['']
         return v
+
 
 class NonlocalJ1D_DefPair(Pair, Phys):
     can_delete = False
@@ -90,65 +96,86 @@ class NonlocalJ1D_DefPair(Pair, Phys):
         v['sel_index'] = []
         return v
 
+
 class NonlocalJ1D(PhysModule):
     dim_fixed = True
+
     def __init__(self, **kwargs):
         super(NonlocalJ1D, self).__init__()
         Phys.__init__(self)
         self['Domain'] = NonlocalJ1D_DefDomain()
         self['Boundary'] = NonlocalJ1D_DefBdry()
 
-    @property        
+    @property
     def nxterms(self):
         if "Domain" not in self:
             return 0
         return np.sum([x.count_x_terms()
-                       for x in self["Domain"].walk_enabled()])
+                       for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "count_x_terms")])
 
-    @property    
+    @property
     def nyterms(self):
         if "Domain" not in self:
             return 0
         return np.sum([x.count_y_terms()
-                       for x in self["Domain"].walk_enabled()]) 
+                       for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "count_y_terms")])
+
     @property
     def nzterms(self):
         if "Domain" not in self:
             return 0
         return np.sum([x.count_z_terms()
-                       for x in self["Domain"].walk_enabled()])
+                       for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "count_z_terms")])
 
-    @property    
+    @property
     def nterms(self):
-        return self.nxterms + self.nyterms + self.nzterms
-    
+        '''
+        number of h1 basis. it can not be zero. so if it is zero, it returns 1.
+        '''
+        total = 0
+        if self.nxterms > 0:
+            total += self.nxterms + 1
+        if self.nyterms > 0:
+            total += self.nyterms + 1
+        if self.nzterms > 0:
+            total += self.nzterms + 1
+
+        if total == 0:
+            total = 1
+        return total
+
     @property
     def dep_vars(self):
         base = self.dep_vars_base_txt
         ret = []
         nterms = self.nxterms
         if nterms > 0:
-           ret.append(base+self.dep_vars_suffix + "x")
-           for i in range(nterms):
-               ret.append(base+self.dep_vars_suffix+"x_"+str(i+1))
+            ret.append(base+self.dep_vars_suffix + "x")
+            for i in range(nterms):
+                ret.append(base+self.dep_vars_suffix+"x_"+str(i+1))
         nterms = self.nyterms
         if nterms > 0:
-           ret.append(base+self.dep_vars_suffix + "y")
-           for i in range(nterms):                  
-               ret.append(base+self.dep_vars_suffix+"y_"+str(i+1))
+            ret.append(base+self.dep_vars_suffix + "y")
+            for i in range(nterms):
+                ret.append(base+self.dep_vars_suffix+"y_"+str(i+1))
         nterms = self.nzterms
         if nterms > 0:
-           ret.append(base+self.dep_vars_suffix + "z")
-           for i in range(nterms):                                     
-               ret.append(base+self.dep_vars_suffix+"z_"+str(i+1))
+            ret.append(base+self.dep_vars_suffix + "z")
+            for i in range(nterms):
+                ret.append(base+self.dep_vars_suffix+"z_"+str(i+1))
 
+        if len(ret) == 0:
+            ret = [base + self.dep_vars_suffix + "x"]
         return ret
 
     @property
     def dep_vars_base(self):
         val = self.dep_vars_base_txt.split(',')
         return val
-    
+
     @property
     def der_vars(self):
         return []
@@ -199,29 +226,30 @@ class NonlocalJ1D(PhysModule):
         v["dep_vars_suffix"] = ''
         v["dep_vars_base_txt"] = 'Jnl'
         v["is_complex_valued"] = True
-
+        v["paired_var"] = None
         return v
 
     def panel1_param(self):
-        sdim = self.geom_dim
+        from petram.utils import pv_panel_param
 
-        import wx
         panels = super(NonlocalJ1D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
+        b[0] = "dep. vars. base"
         c = pv_panel_param(self, "EM3D1 model")
-        
+
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
-            a,
+            a, b,
+            ["dep. vars.", ','.join(self.dep_vars), 2, {}],
             ["derived vars.", ','.join(self.der_vars), 2, {}],
             ["predefined ns vars.", txt_predefined, 2, {}],
-            c,])
+            c, ])
 
         return panels
 
     def get_panel1_value(self):
-        names  = ', '.join(self.dep_vars)
-        names2 = ', '.join(self.der_vars)
+        names = ', '.join(self.dep_vars)
+        name2 = ', '.join(self.der_vars)
         val = super(NonlocalJ1D, self).get_panel1_value()
 
         from petram.utils import pv_get_gui_value
@@ -229,6 +257,7 @@ class NonlocalJ1D(PhysModule):
 
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
+                    self.dep_vars_base_txt,
                     names, name2, txt_predefined, gui_value])
 
         return val
@@ -237,23 +266,22 @@ class NonlocalJ1D(PhysModule):
         import ifigure.widgets.dialog as dialog
 
         v = super(NonlocalJ1D, self).import_panel1_value(v)
+        print("value", v)
         self.ind_vars = str(v[0])
         self.is_complex_valued = False
         self.dep_vars_suffix = str(v[1])
         self.element = "H1_FECollection * "+str(self.nterms)
-        self.dep_vars_base_txt = ','.join(
-            [x.strip() for x in str(v[2]).split(',')])
+        self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
         from petram.utils import pv_from_gui_value
         self.paired_var = pv_from_gui_value(self, v[-1])
 
         return True
 
-
     def get_possible_domain(self):
-        from petram.phys.nonlocalj.jxx import NonlocalJ1D_Jxx
+        from petram.phys.nonlocalj1d.jxx import NonlocalJ1D_Jxx
         doms = super(NonlocalJ1D, self).get_possible_domain()
-        doms.extend(NonlocalJ1D_Jxx)
+        doms.append(NonlocalJ1D_Jxx)
 
         return doms
 
@@ -264,7 +292,7 @@ class NonlocalJ1D(PhysModule):
         bdrs = super(NonlocalJ1D, self).get_possible_bdry()
         return [NonlocalJ1D_Wall]
     '''
-    
+
     def get_possible_point(self):
         '''
         To Do. Support point source

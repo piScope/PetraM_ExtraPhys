@@ -20,9 +20,9 @@ data = (('B', VtableElement('bext', type='array',
                             default="=[0,0,0]",
                             tip="external magnetic field")),
         ('dens', VtableElement('dens_e', type='float',
-                                 guilabel='electron density(m-3)',
-                                 default="1e19",
-                                 tip="electron density")),
+                               guilabel='electron density(m-3)',
+                               default="1e19",
+                               tip="electron density")),
         ('temperature', VtableElement('temperature', type='float',
                                       guilabel='electron temp.(eV)',
                                       default="10.",
@@ -38,6 +38,7 @@ data = (('B', VtableElement('bext', type='array',
                                    no_func=True,
                                    tip="ion charges normalized by q(=1.60217662e-19 [C])")),)
 
+
 class NonlocalJ1D_Jxx(Domain, Phys):
     has_essential = False
     nlterms = []
@@ -46,12 +47,14 @@ class NonlocalJ1D_Jxx(Domain, Phys):
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(RFsheath3D_Asymptotic, self).__init__(**kwargs)
+        super(NonlocalJ1D_Jxx, self).__init__(**kwargs)
 
     def count_x_terms(self):
         return 2
+
     def count_y_terms(self):
         return 0
+
     def count_z_terms(self):
         return 0
 
@@ -92,7 +95,7 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        from petram.phys.rfsheath3d.asymptotic_subs import add_bf_contribution
+        from petram.phys.nonlocalj1d.jxx_subs import add_bf_contribution
 
         if kfes != 0:
             return
@@ -111,7 +114,7 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         else:
             dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
-        from petram.phys.rfsheath3d.asymptotic_subs import add_mix_contribution2
+        from petram.phys.nonlocalj1d.jxx_subs import add_mix_contribution2
 
         add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
                               real=real)

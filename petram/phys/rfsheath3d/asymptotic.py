@@ -1,3 +1,5 @@
+import sys
+
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
@@ -20,6 +22,15 @@ data = (('label1', VtableElement(None,
                                  default="",
                                  tip="Dn = 0 (curl_t E_t = 0)")),)
 
+try:
+    from petram.phys.rfsheath3d.rfsheath3d_subs import (asymptotic_add_bf_contribution,
+                                                        asymptotic_add_mix_contribution2)
+    add_bf_contribution = asymptotic_add_bf_contribution
+    add_mix_contribution2 = asymptotic_add_mix_contribution2
+except ImportError:
+    import petram.mfem_model as mm
+    if mm.has_addon_access not in ["any", "rfsheath"]:
+        sys.modules[__name__].dependency_invalid = True
 
 class RFsheath3D_Asymptotic(Domain, Phys):
     has_essential = False
@@ -67,7 +78,7 @@ class RFsheath3D_Asymptotic(Domain, Phys):
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        from petram.phys.rfsheath3d.asymptotic_subs import add_bf_contribution
+
 
         if kfes != 0:
             return
