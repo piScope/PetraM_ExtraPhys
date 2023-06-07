@@ -19,7 +19,7 @@ model_basename = 'NonlocalJ1D'
 
 
 try:
-    import nonlocalj_subroutines
+    import petram.phys.nonlocalj1d.nonlocalj1d_subs
 except:
     import petram.mfem_model as mm
     if mm.has_addon_access not in ["any", "nonlocalj"]:
@@ -226,16 +226,16 @@ class NonlocalJ1D(PhysModule):
         v["dep_vars_suffix"] = ''
         v["dep_vars_base_txt"] = 'Jnl'
         v["is_complex_valued"] = True
-        v["paired_var"] = None
+        v["paired_model"] = None
         return v
 
     def panel1_param(self):
-        from petram.utils import pv_panel_param
+        from petram.utils import pm_panel_param
 
         panels = super(NonlocalJ1D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
         b[0] = "dep. vars. base"
-        c = pv_panel_param(self, "EM3D1 model")
+        c = pm_panel_param(self, "EM3D1 model")
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
@@ -252,8 +252,8 @@ class NonlocalJ1D(PhysModule):
         name2 = ', '.join(self.der_vars)
         val = super(NonlocalJ1D, self).get_panel1_value()
 
-        from petram.utils import pv_get_gui_value
-        gui_value, self.paired_var = pv_get_gui_value(self, self.paired_var)
+        from petram.utils import pm_get_gui_value
+        gui_value, self.paired_model = pm_get_gui_value(self, self.paired_model)
 
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
@@ -266,22 +266,23 @@ class NonlocalJ1D(PhysModule):
         import ifigure.widgets.dialog as dialog
 
         v = super(NonlocalJ1D, self).import_panel1_value(v)
-        print("value", v)
+
         self.ind_vars = str(v[0])
         self.is_complex_valued = False
         self.dep_vars_suffix = str(v[1])
         self.element = "H1_FECollection * "+str(self.nterms)
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
-        from petram.utils import pv_from_gui_value
-        self.paired_var = pv_from_gui_value(self, v[-1])
+        from petram.utils import pm_from_gui_value
+        self.paired_model = pm_from_gui_value(self, v[-1])
 
         return True
 
     def get_possible_domain(self):
         from petram.phys.nonlocalj1d.jxx import NonlocalJ1D_Jxx
-        doms = super(NonlocalJ1D, self).get_possible_domain()
-        doms.append(NonlocalJ1D_Jxx)
+        doms = [NonlocalJ1D_Jxx]
+        doms.extend(super(NonlocalJ1D, self).get_possible_domain())
+
 
         return doms
 
