@@ -1,3 +1,8 @@
+'''
+
+compute non-local current correction.
+
+'''
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
@@ -20,20 +25,20 @@ data = (('B', VtableElement('bext', type='array',
                             default="=[0,0,0]",
                             tip="external magnetic field")),
         ('dens', VtableElement('dens_e', type='float',
-                               guilabel='electron density(m-3)',
+                               guilabel='density(m-3)',
                                default="1e19",
                                tip="electron density")),
         ('temperature', VtableElement('temperature', type='float',
-                                      guilabel='electron temp.(eV)',
+                                      guilabel='temp.(eV)',
                                       default="10.",
-                                      tip="electron temperature used for collisions")),
+                                      tip="temperature ")),
         ('mass', VtableElement('mass', type='array',
-                               guilabel='ion masses(/Da)',
+                               guilabel='masses(/Da)',
                                default="2, 1",
                                no_func=True,
-                               tip="mass. use  m_h, m_d, m_t, or u")),
+                               tip="mass. normalized by Da. For electrons, use q_Da")),
         ('charge_q', VtableElement('charge_q', type='array',
-                                   guilabel='ion charges(/q)',
+                                   guilabel='charges(/q)',
                                    default="1, 1",
                                    no_func=True,
                                    tip="ion charges normalized by q(=1.60217662e-19 [C])")),)
@@ -76,22 +81,23 @@ class NonlocalJ1D_Jxx(Domain, Phys):
 
     def get_mixedbf_loc(self):
         '''
-        Jx = Jx1 + Jx2 + Jx3 ..
+        Jnl = Jn1 + Jx2 + Jx3 ..
         nabla^2 Jx1 - d1 = c1 * E
         nabla^2 Jx1 - d2 = c2 * E
         nabla^2 Jx3 - d1 = c3 * E
         '''
-        Vshname = self.get_root_phys().dep_vars[0]
-        Fmgname = self.get_root_phys().dep_vars[1]
+        Jnlnames = [x for x in self.get_root_phys().dep_vars if x.endswith('x')]
+        Jnlname = Jnlnames[0]
+        Jnlterms = [x for x in self.get_root_phys().dep_vars if x.startswith(Jnlname + "_")]
 
-        paired_var = self.get_root_phys().paired_var
+        paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
-        var_s = mfem_physroot[paired_var[0]].dep_vars
-        Ename = var_s[paired_var[1]]
+        var_s = mfem_physroot[paired_model].dep_vars
+        Ename = var_s[0]
 
-        loc = ((Fmgname, Ename, 1, 1),
-               (Fmgname, Ename, -1, 1),
-               (Vshname, Ename, 1, 1),)
+        loc = []
+        for n in Jnlterms:
+            loc.append((n, Ename, 1, 1))
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):

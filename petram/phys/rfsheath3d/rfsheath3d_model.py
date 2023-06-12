@@ -35,7 +35,6 @@ class RFsheath3D_DefDomain(Domain, Phys):
     def import_panel1_value(self, v):
         pass
 
-
 class RFsheath3D_DefBdry(Bdry, Phys):
     can_delete = False
     is_essential = False

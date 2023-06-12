@@ -25,7 +25,6 @@ except:
     if mm.has_addon_access not in ["any", "nonlocalj"]:
         sys.modules[__name__].dependency_invalid = True
 
-
 class NonlocalJ1D_DefDomain(Domain, Phys):
     can_delete = False
 
@@ -45,6 +44,15 @@ class NonlocalJ1D_DefDomain(Domain, Phys):
         return 0
 
     def count_z_terms(self):
+        return 0
+
+    def has_jx(self):
+        return 0
+
+    def has_jy(self):
+        return 0
+
+    def has_jz(self):
         return 0
 
 
@@ -131,40 +139,48 @@ class NonlocalJ1D(PhysModule):
                        if hasattr(x, "count_z_terms")])
 
     @property
+    def has_jx(self):
+        return int(np.any([x.has_jx()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_jx")]))
+    @property
+    def has_jy(self):
+        return int(np.any([x.has_jy()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_jy")]))
+    @property
+    def has_jz(self):
+        return int(np.any([x.has_jz()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_jz")]))
+
+    @property
     def nterms(self):
         '''
         number of h1 basis. it can not be zero. so if it is zero, it returns 1.
         '''
-        total = 0
-        if self.nxterms > 0:
-            total += self.nxterms + 1
-        if self.nyterms > 0:
-            total += self.nyterms + 1
-        if self.nzterms > 0:
-            total += self.nzterms + 1
-
-        if total == 0:
-            total = 1
-        return total
+        return (self.nxterms + self.has_jx +
+                self.nyterms + self.has_jy +
+                self.nzterms + self.has_jz)
 
     @property
     def dep_vars(self):
         base = self.dep_vars_base_txt
         ret = []
-        nterms = self.nxterms
-        if nterms > 0:
+        if self.has_jx:
             ret.append(base+self.dep_vars_suffix + "x")
-            for i in range(nterms):
+        if self.nxterms > 0:
+            for i in range(self.nxterms):
                 ret.append(base+self.dep_vars_suffix+"x_"+str(i+1))
-        nterms = self.nyterms
-        if nterms > 0:
+        if self.has_jy:
             ret.append(base+self.dep_vars_suffix + "y")
-            for i in range(nterms):
+        if self.nyterms > 0:
+            for i in range(self.nyterms):
                 ret.append(base+self.dep_vars_suffix+"y_"+str(i+1))
-        nterms = self.nzterms
-        if nterms > 0:
+        if self.has_jz:
             ret.append(base+self.dep_vars_suffix + "z")
-            for i in range(nterms):
+        if self.nzterms > 0:
+            for i in range(self.nzterms):
                 ret.append(base+self.dep_vars_suffix+"z_"+str(i+1))
 
         if len(ret) == 0:
@@ -229,6 +245,11 @@ class NonlocalJ1D(PhysModule):
         v["paired_model"] = None
         return v
 
+    def get_default_ns(self):
+        from petram.phys.phys_const import q0, Da
+        ns =  {'q_Da': q0/Da}
+        return ns
+
     def panel1_param(self):
         from petram.utils import pm_panel_param
 
@@ -275,25 +296,23 @@ class NonlocalJ1D(PhysModule):
 
         from petram.utils import pm_from_gui_value
         self.paired_model = pm_from_gui_value(self, v[-1])
-
+        print(self.paired_model)
         return True
 
     def get_possible_domain(self):
         from petram.phys.nonlocalj1d.jxx import NonlocalJ1D_Jxx
-        doms = [NonlocalJ1D_Jxx]
+        from petram.phys.nonlocalj1d.jhot import NonlocalJ1D_Jhot
+        doms = [NonlocalJ1D_Jhot, NonlocalJ1D_Jxx]
         doms.extend(super(NonlocalJ1D, self).get_possible_domain())
-
 
         return doms
 
-    '''
     def get_possible_bdry(self):
-        from petram.phys.rfsheath3d.wall import NonlocalJ1D_Wall
-
-        bdrs = super(NonlocalJ1D, self).get_possible_bdry()
-        return [NonlocalJ1D_Wall]
-    '''
-
+        from petram.phys.nonlocalj1d.coldedge import NonlocalJ1D_ColdEdge
+        bdrs = [NonlocalJ1D_ColdEdge]
+        bdrs.extend(super(NonlocalJ1D, self).get_possible_bdry())
+        return bdrs
+    
     def get_possible_point(self):
         '''
         To Do. Support point source
