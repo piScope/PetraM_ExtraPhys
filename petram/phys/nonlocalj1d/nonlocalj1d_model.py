@@ -252,8 +252,10 @@ class NonlocalJ1D(PhysModule):
         return v
 
     def get_default_ns(self):
-        from petram.phys.phys_const import q0, Da
-        ns =  {'q_Da': q0/Da}
+        from petram.phys.phys_const import q0, Da, mass_electron
+        ns =  {'me': mass_electron,
+               'Da': Da,
+               'q0': q0}
         return ns
 
     def panel1_param(self):

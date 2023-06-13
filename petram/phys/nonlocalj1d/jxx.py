@@ -32,19 +32,19 @@ data = (('B', VtableElement('bext', type='array',
                                       guilabel='temp.(eV)',
                                       default="10.",
                                       tip="temperature ")),
-        ('mass', VtableElement('mass', type='array',
+        ('mass', VtableElement('mass', type="float",
                                guilabel='masses(/Da)',
-                               default="q_Da",
-                               no_func=True,
+                               default="1.0",
+                               #no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
-        ('charge_q', VtableElement('charge_q', type='array',
+        ('charge_q', VtableElement('charge_q', type='float',
                                    guilabel='charges(/q)',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
         ('nmax', VtableElement('nmax', type='int',
                                    guilabel='nmax',
-                                   default="5",
+                                   default="3",
                                    no_func=True,
                                    tip="maximum number of cyclotron harmonics ")),)
 
@@ -52,15 +52,33 @@ data = (('B', VtableElement('bext', type='array',
 class NonlocalJ1D_Jxx(Domain, Phys):
     has_essential = False
     nlterms = []
-    can_timedpendent = True
     has_3rd_panel = True
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
         super(NonlocalJ1D_Jxx, self).__init__(**kwargs)
+        Phys.__init__(self)
+        
 
     def count_x_terms(self):
-        return 2
+        if not hasattr(self, "_global_ns"):
+            return 0
+        if not hasattr(self, "_nmax_bk"):
+            self._nxterms = 0
+            self._nmax_bk = -1
+            
+        B, dens, temp, masse, charge, nmax = self.vt.make_value_or_expression(self)
+
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
+
+        if self._nmax_bk != nmax:
+            fits = jxx_terms(nmax=nmax)
+            self._approx_computed = True
+            total = np.sum([len(fit.c_arr) for fit in fits])
+            self._nxterms = total
+            self._nmax_bk = nmax
+
+        return int(self._nxterms)
 
     def count_y_terms(self):
         return 0
@@ -129,8 +147,27 @@ class NonlocalJ1D_Jxx(Domain, Phys):
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
         from petram.phys.nonlocalj1d.jxx_subs import add_bf_contribution
 
+        root = self.get_root_phys()
+        
+        dep_vars = root.dep_vars
+        
+        if not root.has_jx:
+            return
+        
+        jxname = ret.append(base+self.dep_vars_suffix + "x")
+
+        if not dep_vars[kfes].startswith(jxname):
+            return
         if kfes != 0:
             return
+        if dep_vars[kfes][len(jxname)+1:] == '':  # Jnlx
+            return
+        
+        idx = int(dep_vars[kfes][len(jxname)+1:])  # Jnlx_1, Jnlx_2, ...
+
+        for coeff in self._jitted_coeffs:
+            if coeff.n != idx: continue
+            pass
 
         if real:
             dprint1("Add diffusion integrator contribution(real)")

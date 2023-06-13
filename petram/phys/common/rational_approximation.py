@@ -77,7 +77,10 @@ class poly_fraction():
         return "\n".join(txt)
 
 
-def calc_decomposition(func, x, mmax, xp, viewer=None, **kwargs):
+def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
+    if xp is None:
+        xp = x
+
     f = np.array([func(xx, **kwargs) for xx in x])
 
     if viewer is not None:
@@ -128,6 +131,7 @@ def calc_decomposition(func, x, mmax, xp, viewer=None, **kwargs):
             return value
         f_sum.c_arr = c_arr
         f_sum.d_arr = d_arr
+        f_sum.c0 = c0
     else:
         f_sum = poly_fraction(c0, c_arr, d_arr)
 
@@ -141,10 +145,10 @@ def calc_decomposition(func, x, mmax, xp, viewer=None, **kwargs):
     return f_sum
 
 
-def find_decomposition(func, x, xp, viewer=None, mmax_min=2,  mmax_max=5, **kwargs):
+def find_decomposition(func, x, xp=None, viewer=None, mmax_min=2,  mmax_max=5, **kwargs):
     mm = mmax_min
     while mm <= mmax_max:
-        fit = calc_decomposition(func, x, mm, xp, viewer=viewer, **kwargs)
+        fit = calc_decomposition(func, x, mm, xp=xp, viewer=viewer, **kwargs)
         if fit is not None:
             break
 
