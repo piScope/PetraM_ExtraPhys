@@ -1,6 +1,13 @@
 import numpy as np
 from baryrat import aaa
 
+try:
+    from numba import njit, void, int64, float64, complex128, types
+    use_numba = True
+except ImportError:
+    use_numba = False
+
+
 def P(r):
     '''
     compute numerator of approximation f(x) = P(x)/Q(x)
@@ -46,14 +53,16 @@ def Q(r):
         poly = poly + tmp
     return poly
 
+
 class poly_fraction():
-    def __init__(self, c0, c_and_d):
+    def __init__(self, c0, c_arr, d_arr):
         self.c0 = c0
-        self.c_and_d = c_and_d
+        self.c_arr = c_arr
+        self.d_arr = d_arr
 
     def __call__(self, x):
         value = np.zeros(x.shape, dtype=np.complex128) + self.c0
-        for c, d in self.c_and_d:
+        for c, d in zip(self.c_arr, self.d_arr):
             value = value + c / (x - d)
 
         return value
@@ -63,8 +72,8 @@ class poly_fraction():
                "c0: " + str(self.c0),
                "c and d: "]
 
-        for x in self.c_and_d:
-            txt.append(str(x))
+        for c, d in zip(self.c_arr, self.d_arr):
+            txt.append(str((c, d)))
         return "\n".join(txt)
 
 
@@ -72,15 +81,14 @@ def calc_decomposition(func, x, mmax, xp, viewer=None, **kwargs):
     f = np.array([func(xx, **kwargs) for xx in x])
 
     if viewer is not None:
-        fp = np.array([func(xx, **kwargs) for xx in xp])        
+        fp = np.array([func(xx, **kwargs) for xx in xp])
         viewer.plot(xp, fp, 'r')
         if np.iscomplexobj(f):
             viewer.plot(xp, fp.imag, 'b')
         viewer.xlabel("x")
 
-
     r = aaa(x, f, tol=0, mmax=mmax)
-    #if viewer is not None:
+    # if viewer is not None:
     #    viewer.plot(x, r(x), 'ro')
     #    if np.iscomplexobj(f):
     #        viewer.plot(x, r(x).imag, 'bo')
@@ -90,24 +98,40 @@ def calc_decomposition(func, x, mmax, xp, viewer=None, **kwargs):
 
     roots = np.roots(poly_q)
 
-    c_and_d = []
+    c_arr = []
+    d_arr = []
     for root in roots:
-        c_and_d.append((poly_p(root)/poly_q_prime(root), root))
-        
-    if not np.all([d.real<0 for d in roots]):
+        c_arr.append(poly_p(root)/poly_q_prime(root))
+        d_arr.append(root)
+
+    c_arr = np.array(c_arr)
+    d_arr = np.array(d_arr)
+
+    if not np.all([d.real < 0 for d in roots]):
         return None
-    
+
     tmp = 0j
-    for c, d in c_and_d:
+    for c, d in zip(c_arr, d_arr):
         tmp = tmp + c/(x[0]-d)
 
     print(x[0], func(x[0], **kwargs), tmp)
     c0 = func(x[0], **kwargs)-tmp
 
-    f_sum = poly_fraction(c0, c_and_d)
+    if use_numba:
+        @njit(complex128(float64))
+        def f_sum(x):
+            value = c0+0j
+            for i in range(len(c_arr)):
+                value = value + c_arr[i] / (x - d_arr[i])
+            # for c, d in zip(c_arr, d_arr):
+            #    value = value + c / (x - d)
+            return value
+        f_sum.c_arr = c_arr
+        f_sum.d_arr = d_arr
+    else:
+        f_sum = poly_fraction(c0, c_arr, d_arr)
 
     fit = np.array([f_sum(xx) for xx in xp])
-
     if viewer is not None:
         viewer.plot(xp, fit, 'g--')
         if np.iscomplexobj(f):
@@ -115,6 +139,7 @@ def calc_decomposition(func, x, mmax, xp, viewer=None, **kwargs):
 
     print(f_sum)
     return f_sum
+
 
 def find_decomposition(func, x, xp, viewer=None, mmax_min=2,  mmax_max=5, **kwargs):
     mm = mmax_min
@@ -124,9 +149,7 @@ def find_decomposition(func, x, xp, viewer=None, mmax_min=2,  mmax_max=5, **kwar
             break
 
         mm = mm + 1
-    
-    success = np.all([d.real<0 for c, d in fit.c_and_d])
+
+    success = np.all([d.real < 0 for d in fit.d_arr])
 
     return fit, success
-    
-        

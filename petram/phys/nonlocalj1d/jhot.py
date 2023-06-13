@@ -13,71 +13,53 @@ from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jxx')
+dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jhot')
 
 if use_parallel:
     import mfem.par as mfem
 else:
     import mfem.ser as mfem
 
-data = (('B', VtableElement('bext', type='array',
-                            guilabel='magnetic field',
-                            default="=[0,0,0]",
-                            tip="external magnetic field")),
-        ('dens', VtableElement('dens_e', type='float',
-                               guilabel='density(m-3)',
-                               default="1e19",
-                               tip="electron density")),
-        ('temperature', VtableElement('temperature', type='float',
-                                      guilabel='temp.(eV)',
-                                      default="10.",
-                                      tip="temperature ")),
-        ('mass', VtableElement('mass', type='array',
-                               guilabel='masses(/Da)',
-                               default="2, 1",
-                               no_func=True,
-                               tip="mass. normalized by Da. For electrons, use q_Da")),
-        ('charge_q', VtableElement('charge_q', type='array',
-                                   guilabel='charges(/q)',
-                                   default="1, 1",
-                                   no_func=True,
-                                   tip="ion charges normalized by q(=1.60217662e-19 [C])")),)
-
-
-class NonlocalJ1D_Jxx(Domain, Phys):
+class NonlocalJ1D_Jhot(Domain, Phys):
     has_essential = False
     nlterms = []
     can_timedpendent = True
     has_3rd_panel = True
-    vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_Jxx, self).__init__(**kwargs)
+        super(NonlocalJ1D_Jhot, self).__init__(**kwargs)
 
-    def count_x_terms(self):
-        return 2
+    def has_jx(self):
+        return int(self.j_direction == 'x')
 
-    def count_y_terms(self):
-        return 0
+    def has_jy(self):
+        return int(self.j_direction == 'y')
 
-    def count_z_terms(self):
-        return 0
-
-    @property
-    def jited_coeff(self):
-        return self._jited_coeff
-
-    def compile_coeffs(self):
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
-
-        self._jxterms = jxx_terms()
+    def has_jz(self):
+        return int(self.j_direction == 'z')
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
         Phys.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
+        v["j_direction"] = 'x'
         return v
+
+    def panel1_param(self):
+        from wx import CB_READONLY        
+        panels = super(NonlocalJ1D_Jhot, self).panel1_param()
+        panels.append(["direction", "x", 4,
+                       {"style": CB_READONLY, "choices": ["x", "y", "z"]}])
+        return panels
+
+    def get_panel1_value(self):
+        val =  super(NonlocalJ1D_Jhot, self).get_panel1_value()
+        val.append(self.j_direction)
+        return val
+
+    def import_panel1_value(self, v):
+        self.j_direction = str(v[-1])        
 
     def has_bf_contribution(self, kfes):
         if kfes == 0:
@@ -95,18 +77,19 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         nabla^2 Jx1 - d2 = c2 * E
         nabla^2 Jx3 - d1 = c3 * E
         '''
-        Jnlnames = [x for x in self.get_root_phys().dep_vars if x.endswith('x')]
+        dir = self.j_direction              
+        Jnlnames = [x for x in self.get_root_phys().dep_vars if x.endswith(dir)]
         Jnlname = Jnlnames[0]
         Jnlterms = [x for x in self.get_root_phys().dep_vars if x.startswith(Jnlname + "_")]
-
+                      
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         var_s = mfem_physroot[paired_model].dep_vars
         Ename = var_s[0]
 
-        loc = []
+        loc = [(Jnlname, Ename, -1, 1)]
         for n in Jnlterms:
-            loc.append((n, Ename, 1, 1))
+            loc.append((n, Jnlname, 1, 1))
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
