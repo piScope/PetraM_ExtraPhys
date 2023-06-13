@@ -140,16 +140,22 @@ class NonlocalJ1D(PhysModule):
 
     @property
     def has_jx(self):
+        if "Domain" not in self:
+            return 0
         return int(np.any([x.has_jx()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jx")]))
     @property
     def has_jy(self):
+        if "Domain" not in self:
+            return 0
         return int(np.any([x.has_jy()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jy")]))
     @property
     def has_jz(self):
+        if "Domain" not in self:
+            return 0
         return int(np.any([x.has_jz()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jz")]))
@@ -296,7 +302,7 @@ class NonlocalJ1D(PhysModule):
 
         from petram.utils import pm_from_gui_value
         self.paired_model = pm_from_gui_value(self, v[-1])
-        print(self.paired_model)
+
         return True
 
     def get_possible_domain(self):

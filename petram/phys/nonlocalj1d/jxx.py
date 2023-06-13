@@ -34,14 +34,19 @@ data = (('B', VtableElement('bext', type='array',
                                       tip="temperature ")),
         ('mass', VtableElement('mass', type='array',
                                guilabel='masses(/Da)',
-                               default="2, 1",
+                               default="q_Da",
                                no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
         ('charge_q', VtableElement('charge_q', type='array',
                                    guilabel='charges(/q)',
-                                   default="1, 1",
+                                   default="1",
                                    no_func=True,
-                                   tip="ion charges normalized by q(=1.60217662e-19 [C])")),)
+                                   tip="charges normalized by q(=1.60217662e-19 [C])")),
+        ('nmax', VtableElement('nmax', type='int',
+                                   guilabel='nmax',
+                                   default="5",
+                                   no_func=True,
+                                   tip="maximum number of cyclotron harmonics ")),)
 
 
 class NonlocalJ1D_Jxx(Domain, Phys):
@@ -68,9 +73,21 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         return self._jited_coeff
 
     def compile_coeffs(self):
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
+        paired_model = self.get_root_phys().paired_model
+        mfem_physroot = mm.get_root_phys().parent
+        em1d = mfem_physroot[paired_model]
 
-        self._jxterms = jxx_terms()
+        freq, omega = self.em1d.get_freq_omega()
+        ind_vars = self.get_root_phys().ind_vars
+        
+        B, dens, temp, masse, charge, nmax = self.vt.make_value_or_expression(self)
+
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs import (jxx_terms,
+                                                              build_coefficients)
+
+        fits = jxx_terms(nmax=nmax)
+        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits, 
+                                                 self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
