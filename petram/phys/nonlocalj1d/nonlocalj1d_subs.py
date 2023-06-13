@@ -17,10 +17,12 @@ def jxx_terms(nmax=5, maxkrsqr=15, maxm=7, ngrid=300):
     
     for i in range(nmax):
         fit = find_decomposition(func_nnIn_x, L, mmax_min=3, n = i+1)
+        fit.n = i+1
         fits[i] = fit
 
     # subtract cold plasma part
     fits[0].c0 =  fits[0].c0 - 1
+
     return fits
 
 
@@ -28,22 +30,40 @@ from petram.phys.phys_const import epsilon0 as e0
 from petram.phys.phys_const import q0 as q_base
 from petram.phys.phys_const import mass_electron as me
 
-def build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, g_ns, l_ns):
+from petram.phys.numba_coefficient import NumbaCoefficient
+from petram.phys.coefficient import SCoeff, VCoeff, MCoeff
 
-    wp2 = dens * q_base**2/(mass_eff*e0)
-    wc = qe * Bnorm/mass_eff
+def build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits, g_ns, l_ns):
 
-    @njit(complex128(float64[:], float64, float64)
-    def cterm(B, dense, temp):
+    B_coeff = VCoeff(3, [B], ind_vars, l, g,
+                     return_complex=False, return_mfem_constant=True)
+    dens_coeff = SCoeff([dens, ], ind_vars, l, g,
+                       return_complex=False, return_mfem_constant=True)
+    t_coeff = SCoeff([temp, ], ind_vars, l, g,
+                     return_complex=False, return_mfem_constant=True)
+
+    dependency = (B_coeff, dens_coeff, t_coeff)
+    dependency = [(x.mfem_numba_coeff if isinstance(B_coeff, NumbaCoefficient) else x)
+                  for x in dependency]
+    
+    def c0inv(ptx, B, dense, temp):
         '''
-        -1j*e0*wpx2*c_term/w / ((1 - (n*omega_e/w)^2)
+        c0_inv:
+            (1 - (n*omega_x/omega)^2)/c0
+        '''
+        return  (1 - (n*omega_x/omega)^2)/c0
 
-        external constant: ccc, omega
+    def ccoeff(ptx, B, dens, temp):    
+        '''
+        cterm : 
+            -1j*e0*wpx2* <<<c>>> /w / ((1 - (n*omega_e/w)^2)
+
         '''
         T = temp*q_base
         vTe  = sqrt(2*T/mass)
 
         '''
+
         ni  = ne *(1. - imp_frac)*has_ion
         nim = ne * imp_frac*has_ion
         LAMBDA = 1+12*pi*(e0*Te)**(3./2)/(q**3 * sqrt(ne))
@@ -61,29 +81,39 @@ def build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, g_ns, l_ns)
 
         return -1j*e0*wpx2*ccc/omega 
 
-    @njit(complex128(float64[:])
-    def dterm(B):
+    def dcoeff(ptx, B, dens, temp):        
         '''
-        dterm * (1 - (n*omega_x/omega)^2)
-
-        external constant: ddd, n, omega
+        dcoeff:
+             <<<d>>> * (1 - (n*omega_x/omega)^2)
         '''
         Bnorm = np.sqrt(B[0]**2 + B[1]**2 + B[2]**2)
         omega_x = charge * Bnorm / mass
             
         return ddd * (1 - (n*omega_x/omega)^2)            
 
-    @njit(complex128(float64[:], float64))
-    def kappa(B, temp):
+    def kappa(ptx, B, dens, temp):
         '''
-        -rho_sq/2 * (1 - (n*omega_x/omega)^2)
+        kappa: 
+           -rho_sq/2 * (1 - (n*omega_x/omega)^2)
 
-        external constant: ddd, n, omega
         '''
         Bnorm = np.sqrt(B[0]**2 + B[1]**2 + B[2]**2)
         omega_x = charge * Bnorm / mass
         rho_sq = 2*temp*q_base/mass/omega_x/omega_x
-        return -rho_sq/2*(1 - (n*omega_x/omega)^2)
+        kappa =  -rho_sq/2*(1 - (n*omega_x/omega)^2)
+
+        return kappa
+
+    numba_debug = False if myid != 0 else get_numba_debug()
+    
+    params = {'omega': omega, 'mass': mass, 'charges': charge}        
+    jitter = mfem.jit.vector(shape=(3, ), complex=True, params=params,
+                             debug=numba_debug, dependency=dependency)
+          
+    for fit in fits:
+        params['n'] = fit.n
+        
+
               
 
 
