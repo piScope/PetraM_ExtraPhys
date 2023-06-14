@@ -3,6 +3,7 @@
 compute non-local current correction.
 
 '''
+from petram.phys.nonlocalj1d.nonlocalj1d_model import NonlocalJ1D_BaseDomain
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
@@ -35,7 +36,7 @@ data = (('B', VtableElement('bext', type='array',
         ('mass', VtableElement('mass', type="float",
                                guilabel='masses(/Da)',
                                default="1.0",
-                               #no_func=True,
+                               # no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
         ('charge_q', VtableElement('charge_q', type='float',
                                    guilabel='charges(/q)',
@@ -43,13 +44,13 @@ data = (('B', VtableElement('bext', type='array',
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
         ('nmax', VtableElement('nmax', type='int',
-                                   guilabel='nmax',
-                                   default="3",
-                                   no_func=True,
-                                   tip="maximum number of cyclotron harmonics ")),)
+                               guilabel='nmax',
+                               default="3",
+                               no_func=True,
+                               tip="maximum number of cyclotron harmonics ")),)
 
 
-class NonlocalJ1D_Jxx(Domain, Phys):
+class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
@@ -57,8 +58,6 @@ class NonlocalJ1D_Jxx(Domain, Phys):
 
     def __init__(self, **kwargs):
         super(NonlocalJ1D_Jxx, self).__init__(**kwargs)
-        Phys.__init__(self)
-        
 
     def count_x_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -66,8 +65,9 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         if not hasattr(self, "_nmax_bk"):
             self._nxterms = 0
             self._nmax_bk = -1
-            
-        B, dens, temp, masse, charge, nmax = self.vt.make_value_or_expression(self)
+
+        B, dens, temp, masse, charge, nmax = self.vt.make_value_or_expression(
+            self)
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
 
@@ -79,6 +79,11 @@ class NonlocalJ1D_Jxx(Domain, Phys):
             self._nmax_bk = nmax
 
         return int(self._nxterms)
+
+    def get_jx_names(self):
+        base = self.get_root_phys().extra_vars_basex
+        return [base + self.name() + str(i+1)
+                for i in range(self.count_x_terms())]
 
     def count_y_terms(self):
         return 0
@@ -97,14 +102,15 @@ class NonlocalJ1D_Jxx(Domain, Phys):
 
         freq, omega = self.em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
-        
-        B, dens, temp, masse, charge, nmax = self.vt.make_value_or_expression(self)
+
+        B, dens, temp, mass, charge, nmax = self.vt.make_value_or_expression(
+            self)
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs import (jxx_terms,
                                                               build_coefficients)
 
         fits = jxx_terms(nmax=nmax)
-        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits, 
+        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits,
                                                  self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
@@ -130,9 +136,8 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         nabla^2 Jx1 - d2 = c2 * E
         nabla^2 Jx3 - d1 = c3 * E
         '''
-        Jnlnames = [x for x in self.get_root_phys().dep_vars if x.endswith('x')]
-        Jnlname = Jnlnames[0]
-        Jnlterms = [x for x in self.get_root_phys().dep_vars if x.startswith(Jnlname + "_")]
+        Jnlxname = self.get_root_phys().extra_vars_basex
+        Jnlterms = self.get_jx_names()
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -148,25 +153,28 @@ class NonlocalJ1D_Jxx(Domain, Phys):
         from petram.phys.nonlocalj1d.jxx_subs import add_bf_contribution
 
         root = self.get_root_phys()
-        
+
         dep_vars = root.dep_vars
-        
+
         if not root.has_jx:
             return
-        
-        jxname = ret.append(base+self.dep_vars_suffix + "x")
 
-        if not dep_vars[kfes].startswith(jxname):
+        jxname = self.get_root_phys().extra_vars_basex
+
+        jnlterms = self.get_jx_names()
+
+        if not dep_vars[kfes] in jnlterms:
             return
         if kfes != 0:
             return
         if dep_vars[kfes][len(jxname)+1:] == '':  # Jnlx
             return
-        
+
         idx = int(dep_vars[kfes][len(jxname)+1:])  # Jnlx_1, Jnlx_2, ...
 
         for coeff in self._jitted_coeffs:
-            if coeff.n != idx: continue
+            if coeff.n != idx:
+                continue
             pass
 
         if real:

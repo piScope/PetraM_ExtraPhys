@@ -25,17 +25,11 @@ except:
     if mm.has_addon_access not in ["any", "nonlocalj"]:
         sys.modules[__name__].dependency_invalid = True
 
-class NonlocalJ1D_DefDomain(Domain, Phys):
-    can_delete = False
 
+class NonlocalJ1D_BaseDomain(Domain, Phys):
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_DefDomain, self).__init__(**kwargs)
-
-    def get_panel1_value(self):
-        return None
-
-    def import_panel1_value(self, v):
-        pass
+        Domain.__init__(self, **kwargs)
+        Phys.__init__(self, **kwargs)
 
     def count_x_terms(self):
         return 0
@@ -54,6 +48,25 @@ class NonlocalJ1D_DefDomain(Domain, Phys):
 
     def has_jz(self):
         return 0
+
+    def get_jx_names(self):
+        return []
+
+    def get_jy_names(self):
+        return []
+
+    def get_jz_names(self):
+        return []
+
+
+class NonlocalJ1D_DefDomain(NonlocalJ1D_BaseDomain):
+    can_delete = False
+
+    def get_panel1_value(self):
+        return None
+
+    def import_panel1_value(self, v):
+        pass
 
 
 class NonlocalJ1D_DefBdry(Bdry, Phys):
@@ -145,6 +158,7 @@ class NonlocalJ1D(PhysModule):
         return int(np.any([x.has_jx()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jx")]))
+
     @property
     def has_jy(self):
         if "Domain" not in self:
@@ -152,6 +166,7 @@ class NonlocalJ1D(PhysModule):
         return int(np.any([x.has_jy()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jy")]))
+
     @property
     def has_jz(self):
         if "Domain" not in self:
@@ -173,21 +188,30 @@ class NonlocalJ1D(PhysModule):
     def dep_vars(self):
         base = self.dep_vars_base_txt
         ret = []
+
         if self.has_jx:
-            ret.append(base+self.dep_vars_suffix + "x")
-        if self.nxterms > 0:
-            for i in range(self.nxterms):
-                ret.append(base+self.dep_vars_suffix+"x_"+str(i+1))
+            basename = self.extra_vars_basex
+            ret.append(basename)
+
+            for x in self["Domain"].walk_enabled():
+                if x.count_x_terms() > 0:
+                    ret.extend(x.get_jx_names(basename))
+
         if self.has_jy:
-            ret.append(base+self.dep_vars_suffix + "y")
-        if self.nyterms > 0:
-            for i in range(self.nyterms):
-                ret.append(base+self.dep_vars_suffix+"y_"+str(i+1))
+            basename = self.extra_vars_basey
+            ret.append(basename)
+
+            for x in self["Domain"].walk_enabled():
+                if x.count_y_terms() > 0:
+                    ret.extend(x.get_jy_names(basename))
+
         if self.has_jz:
-            ret.append(base+self.dep_vars_suffix + "z")
-        if self.nzterms > 0:
-            for i in range(self.nzterms):
-                ret.append(base+self.dep_vars_suffix+"z_"+str(i+1))
+            basename = self.extra_vars_basez
+            ret.append(basename)
+
+            for x in self["Domain"].walk_enabled():
+                if x.count_z_terms() > 0:
+                    ret.extend(x.get_jz_names(basename))
 
         if len(ret) == 0:
             ret = [base + self.dep_vars_suffix + "x"]
@@ -197,6 +221,24 @@ class NonlocalJ1D(PhysModule):
     def dep_vars_base(self):
         val = self.dep_vars_base_txt.split(',')
         return val
+
+    @property
+    def extra_vars_basex(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "x"
+        return basename
+
+    @property
+    def extra_vars_basey(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "y"
+        return basename
+
+    @property
+    def extra_vars_basez(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "z"
+        return basename
 
     @property
     def der_vars(self):
@@ -253,9 +295,9 @@ class NonlocalJ1D(PhysModule):
 
     def get_default_ns(self):
         from petram.phys.phys_const import q0, Da, mass_electron
-        ns =  {'me': mass_electron,
-               'Da': Da,
-               'q0': q0}
+        ns = {'me': mass_electron,
+              'Da': Da,
+              'q0': q0}
         return ns
 
     def panel1_param(self):
@@ -282,7 +324,8 @@ class NonlocalJ1D(PhysModule):
         val = super(NonlocalJ1D, self).get_panel1_value()
 
         from petram.utils import pm_get_gui_value
-        gui_value, self.paired_model = pm_get_gui_value(self, self.paired_model)
+        gui_value, self.paired_model = pm_get_gui_value(
+            self, self.paired_model)
 
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
@@ -320,7 +363,7 @@ class NonlocalJ1D(PhysModule):
         bdrs = [NonlocalJ1D_ColdEdge]
         bdrs.extend(super(NonlocalJ1D, self).get_possible_bdry())
         return bdrs
-    
+
     def get_possible_point(self):
         '''
         To Do. Support point source

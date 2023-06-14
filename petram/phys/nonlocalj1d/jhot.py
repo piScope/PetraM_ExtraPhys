@@ -3,6 +3,7 @@
 compute non-local current correction.
 
 '''
+from petram.phys.nonlocalj1d.nonlocalj1d_model import NonlocalJ1D_BaseDomain
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
@@ -20,7 +21,8 @@ if use_parallel:
 else:
     import mfem.ser as mfem
 
-class NonlocalJ1D_Jhot(Domain, Phys):
+
+class NonlocalJ1D_Jhot(NonlocalJ1D_BaseDomain):
     has_essential = False
     nlterms = []
     can_timedpendent = True
@@ -47,19 +49,19 @@ class NonlocalJ1D_Jhot(Domain, Phys):
         return v
 
     def panel1_param(self):
-        from wx import CB_READONLY        
+        from wx import CB_READONLY
         panels = super(NonlocalJ1D_Jhot, self).panel1_param()
         panels.append(["direction", "x", 4,
                        {"style": CB_READONLY, "choices": ["x", "y", "z"]}])
         return panels
 
     def get_panel1_value(self):
-        val =  super(NonlocalJ1D_Jhot, self).get_panel1_value()
+        val = super(NonlocalJ1D_Jhot, self).get_panel1_value()
         val.append(self.j_direction)
         return val
 
     def import_panel1_value(self, v):
-        self.j_direction = str(v[-1])        
+        self.j_direction = str(v[-1])
 
     def has_bf_contribution(self, kfes):
         if kfes == 0:
@@ -77,11 +79,12 @@ class NonlocalJ1D_Jhot(Domain, Phys):
         nabla^2 Jx1 - d2 = c2 * E
         nabla^2 Jx3 - d1 = c3 * E
         '''
-        dir = self.j_direction              
+        dir = self.j_direction
         Jnlnames = [x for x in self.get_root_phys().dep_vars if x.endswith(dir)]
         Jnlname = Jnlnames[0]
-        Jnlterms = [x for x in self.get_root_phys().dep_vars if x.startswith(Jnlname + "_")]
-                      
+        Jnlterms = [x for x in self.get_root_phys(
+        ).dep_vars if x.startswith(Jnlname + "_")]
+
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         var_s = mfem_physroot[paired_model].dep_vars
