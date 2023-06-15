@@ -184,6 +184,40 @@ class NonlocalJ1D(PhysModule):
                 self.nyterms + self.has_jy +
                 self.nzterms + self.has_jz)
 
+    def kfes2depvar(self, kfes):
+        root = self.get_root_phys()
+        dep_vars = root.dep_vars
+        dep_var = dep_vars[kfes]
+        return dep_var
+
+    def check_kfes(self, kfes):
+        '''
+           return
+                0: jx
+                1: jy
+                2: jz
+                3: jx contribution
+                4: jy contribution
+                5: jz contribution
+        '''
+        dep_var = self.kfes2depvar(kfes)
+        jxname = self.get_root_phys().extra_vars_basex
+        jyname = self.get_root_phys().extra_vars_basey
+        jzname = self.get_root_phys().extra_vars_basez
+
+        if dep_var == jxname:
+            return 0
+        elif dep_var == jyname:
+            return 1
+        elif dep_var == jzname:
+            return 2
+        elif dep_var.startswith(jxname):
+            return 3
+        elif dep_var.startswith(jyname):
+            return 4
+        elif dep_var.startswith(jzname):
+            return 5
+
     @property
     def dep_vars(self):
         base = self.dep_vars_base_txt
@@ -193,25 +227,25 @@ class NonlocalJ1D(PhysModule):
             basename = self.extra_vars_basex
             ret.append(basename)
 
-            for x in self["Domain"].walk_enabled():
-                if x.count_x_terms() > 0:
-                    ret.extend(x.get_jx_names(basename))
+        for x in self["Domain"].walk_enabled():
+            if x.count_x_terms() > 0:
+                ret.extend(x.get_jx_names())
 
         if self.has_jy:
             basename = self.extra_vars_basey
             ret.append(basename)
 
-            for x in self["Domain"].walk_enabled():
-                if x.count_y_terms() > 0:
-                    ret.extend(x.get_jy_names(basename))
+        for x in self["Domain"].walk_enabled():
+            if x.count_y_terms() > 0:
+                ret.extend(x.get_jy_names())
 
         if self.has_jz:
             basename = self.extra_vars_basez
             ret.append(basename)
 
-            for x in self["Domain"].walk_enabled():
-                if x.count_z_terms() > 0:
-                    ret.extend(x.get_jz_names(basename))
+        for x in self["Domain"].walk_enabled():
+            if x.count_z_terms() > 0:
+                ret.extend(x.get_jz_names())
 
         if len(ret) == 0:
             ret = [base + self.dep_vars_suffix + "x"]
@@ -221,6 +255,10 @@ class NonlocalJ1D(PhysModule):
     def dep_vars_base(self):
         val = self.dep_vars_base_txt.split(',')
         return val
+
+    @property
+    def dep_vars0(self):
+        return self.dep_vars
 
     @property
     def extra_vars_basex(self):
@@ -340,7 +378,7 @@ class NonlocalJ1D(PhysModule):
         v = super(NonlocalJ1D, self).import_panel1_value(v)
 
         self.ind_vars = str(v[0])
-        self.is_complex_valued = False
+        self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
         self.element = "H1_FECollection * "+str(self.nterms)
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
@@ -394,13 +432,6 @@ class NonlocalJ1D(PhysModule):
         dep_vars = self.dep_vars
         sdim = self.geom_dim
 
-        if name == dep_vars[0]:
-            add_scalar(v, name, "", ind_vars, solr, soli)
+        add_scalar(v, name, "", ind_vars, solr, soli)
 
-        elif name == dep_vars[1]:
-            for k, suffix in enumerate(ind_vars):
-                nn = name + suffix
-                v[nn] = GFScalarVariable(solr, soli, comp=k+1)
-        else:
-            pass
         return v

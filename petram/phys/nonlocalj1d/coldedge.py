@@ -14,7 +14,7 @@ if use_parallel:
     import mfem.par as mfem
 else:
     import mfem.ser as mfem
-    
+
 data = (('jx_edge', VtableElement('jx_edge', type='complex',
                                   guilabel='Jx',
                                   default=0.0,
@@ -34,7 +34,7 @@ class NonlocalJ1D_ColdEdge(Bdry, Phys):
     nlterms = []
     can_timedpendent = True
     has_3rd_panel = True
-    vt = Vtable(data)    
+    vt = Vtable(data)
 
     def __init__(self, **kwargs):
         super(NonlocalJ1D_ColdEdge, self).__init__(**kwargs)
@@ -47,20 +47,31 @@ class NonlocalJ1D_ColdEdge(Bdry, Phys):
         return v
 
     def get_essential_idx(self, kfes):
-        #if kfes == 0:
+        # if kfes == 0:
         return self._sel_index
-        #else:
+        # else:
         #    return []
 
     def apply_essential(self, engine, gf, real=False, kfes=0):
-        if kfes > 0:
-            return
-        c0 = self.vt.make_value_or_expression(self)[0]
+        jx0, jy0, jz0 = self.vt.make_value_or_expression(self)
 
-        if real:
-            dprint1("Apply Ess.(real)" + str(self._sel_index), 'c0', c0)
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+        dep_var = root.kfes2depvar(kfes)
+        if check in (0, 3):
+            c0 = jx0
+        elif check in (1, 4):
+            c0 = jy0
+        elif check in (2, 5):
+            c0 = jz0
         else:
-            dprint1("Apply Ess.(imag)" + str(self._sel_index), 'c0', c0)
+            assert False, 'Unknown check return value'
+        if real:
+            dprint1("Apply Ess.(real)" + str(self._sel_index),
+                    'kfes', kfes, dep_var, c0)
+        else:
+            dprint1("Apply Ess.(imag)" + str(self._sel_index),
+                    'kfes', kfes, dep_var, c0)
 
         name = self.get_root_phys().dep_vars[0]
         fes = engine.get_fes(self.get_root_phys(), name=name)
@@ -80,7 +91,7 @@ class NonlocalJ1D_ColdEdge(Bdry, Phys):
         dofs = mfem.intArray([fes.VDofToDof(i) for i in vdofs])
         fes.BuildDofToArrays()
 
-        coeff1 = SCoeff(c0, self.get_root_phys().ind_vars,
+        coeff1 = SCoeff([c0], self.get_root_phys().ind_vars,
                         self._local_ns, self._global_ns,
                         real=real)
         gf.ProjectCoefficient(coeff1, dofs, 0)

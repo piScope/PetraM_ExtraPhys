@@ -64,58 +64,79 @@ class NonlocalJ1D_Jhot(NonlocalJ1D_BaseDomain):
         self.j_direction = str(v[-1])
 
     def has_bf_contribution(self, kfes):
-        if kfes == 0:
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+        if check in (0, 1, 2):
             return True
-        else:
-            return False
+        return False
 
     def has_mixed_contribution(self):
         return True
 
     def get_mixedbf_loc(self):
-        '''
-        Jnl = Jn1 + Jx2 + Jx3 ..
-        nabla^2 Jx1 - d1 = c1 * E
-        nabla^2 Jx1 - d2 = c2 * E
-        nabla^2 Jx3 - d1 = c3 * E
-        '''
-        dir = self.j_direction
-        Jnlnames = [x for x in self.get_root_phys().dep_vars if x.endswith(dir)]
-        Jnlname = Jnlnames[0]
-        Jnlterms = [x for x in self.get_root_phys(
-        ).dep_vars if x.startswith(Jnlname + "_")]
 
-        paired_model = self.get_root_phys().paired_model
-        mfem_physroot = self.get_root_phys().parent
+        root = self.get_root_phys()
+
+        paired_model = root.paired_model
+        mfem_physroot = root.parent
         var_s = mfem_physroot[paired_model].dep_vars
-        Ename = var_s[0]
 
-        loc = [(Jnlname, Ename, -1, 1)]
+        dir = self.j_direction
+        if dir == 'x':
+            base = root.extra_vars_basex
+            Ename = var_s[0]
+        elif dir == 'y':
+            base = root.extra_vars_basey
+            Ename = var_s[1]
+        elif dir == 'z':
+            base = root.extra_vars_basez
+            Ename = var_s[2]
+
+        Jnlterms = [x for x in self.get_root_phys().dep_vars
+                    if x.startswith(base) and base != x]
+
+        loc = []
         for n in Jnlterms:
-            loc.append((n, Jnlname, 1, 1))
+            loc.append((base, n, 1, 1))
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        from petram.phys.nonlocalj1d.jxx_subs import add_bf_contribution
-
-        if kfes != 0:
+        if real:
+            dprint1("Add diffusion integrator contribution(real)", "kfes=", kfes)
+        else:
             return
 
-        if real:
-            dprint1("Add diffusion integrator contribution(real)")
-        else:
-            dprint1("Add diffusion integrator contribution(imag)")
-
-        add_bf_contribution(self, mfem, engine, a, real=real, kfes=kfes)
+        sc = mfem.ConstantCoefficient(-1)
+        self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
+                            mfem.MassIntegrator)
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
         if real:
-            dprint1("Add mixed contribution(real)"  "r/c", r, c, is_trans)
+            dprint1("Add mixed contribution(real)"  "r/c", r, c)
         else:
-            dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
+            dprint1("Add mixed contribution(imag)"  "r/c", r, c)
 
-        from petram.phys.nonlocalj1d.jxx_subs import add_mix_contribution2
+        root = self.get_root_phys()
 
-        add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
-                              real=real)
+        paired_model = root.paired_model
+        mfem_physroot = root.parent
+        em1d = mfem_physroot[paired_model]
+        var_s = em1d.dep_vars
+
+        dir = self.j_direction
+        if dir == 'x':
+            base = root.extra_vars_basex
+            Ename = var_s[0]
+        elif dir == 'y':
+            base = root.extra_vars_basey
+            Ename = var_s[1]
+        elif dir == 'z':
+            base = root.extra_vars_basez
+            Ename = var_s[2]
+
+        if r == base and c.startswith(base):
+            if real:
+                sc = mfem.ConstantCoefficient(1)
+                self.add_integrator(engine, 'identity', sc,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)

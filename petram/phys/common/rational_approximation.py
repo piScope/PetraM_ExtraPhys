@@ -1,3 +1,17 @@
+'''
+   rational approximation utility
+
+     find_decomposition(func, x, xp=None, viewer=None, mmin=2,  mmax=5, **kwargs)
+
+       find an approximation for function <func> over x range given by <x>
+
+       plot option:
+           xp : x range used in plotting
+           viewer : a viewer used for plotting. Typically give figure()
+
+       number of terms:  mmin - mmax
+
+'''
 import numpy as np
 from baryrat import aaa
 
@@ -117,7 +131,6 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
     for c, d in zip(c_arr, d_arr):
         tmp = tmp + c/(x[0]-d)
 
-    print(x[0], func(x[0], **kwargs), tmp)
     c0 = func(x[0], **kwargs)-tmp
 
     if use_numba:
@@ -141,13 +154,12 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
         if np.iscomplexobj(f):
             viewer.plot(xp, fit.imag, 'g--')
 
-    print(f_sum)
     return f_sum
 
 
-def find_decomposition(func, x, xp=None, viewer=None, mmax_min=2,  mmax_max=5, **kwargs):
-    mm = mmax_min
-    while mm <= mmax_max:
+def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=5, **kwargs):
+    mm = mmin
+    while mm <= mmax:
         fit = calc_decomposition(func, x, mm, xp=xp, viewer=viewer, **kwargs)
         if fit is not None:
             break

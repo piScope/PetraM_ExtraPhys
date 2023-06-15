@@ -74,7 +74,7 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         if self._nmax_bk != nmax:
             fits = jxx_terms(nmax=nmax)
             self._approx_computed = True
-            total = np.sum([len(fit.c_arr) for fit in fits])
+            total = np.sum([len(fit.c_arr)+1 for fit in fits])
             self._nxterms = total
             self._nmax_bk = nmax
 
@@ -97,10 +97,10 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
 
     def compile_coeffs(self):
         paired_model = self.get_root_phys().paired_model
-        mfem_physroot = mm.get_root_phys().parent
+        mfem_physroot = self.get_root_phys().parent
         em1d = mfem_physroot[paired_model]
 
-        freq, omega = self.em1d.get_freq_omega()
+        freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
         B, dens, temp, mass, charge, nmax = self.vt.make_value_or_expression(
@@ -121,10 +121,10 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         return v
 
     def has_bf_contribution(self, kfes):
-        if kfes == 0:
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+        if check == 3:
             return True
-        else:
-            return False
 
     def has_mixed_contribution(self):
         return True
@@ -147,42 +147,36 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         loc = []
         for n in Jnlterms:
             loc.append((n, Ename, 1, 1))
+        for n in Jnlterms:
+            loc.append((Ename, n, 1, 1))
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-        from petram.phys.nonlocalj1d.jxx_subs import add_bf_contribution
+
+        jxnames = self.get_jx_names()
 
         root = self.get_root_phys()
-
-        dep_vars = root.dep_vars
-
-        if not root.has_jx:
-            return
-
-        jxname = self.get_root_phys().extra_vars_basex
-
-        jnlterms = self.get_jx_names()
-
-        if not dep_vars[kfes] in jnlterms:
-            return
-        if kfes != 0:
-            return
-        if dep_vars[kfes][len(jxname)+1:] == '':  # Jnlx
-            return
-
-        idx = int(dep_vars[kfes][len(jxname)+1:])  # Jnlx_1, Jnlx_2, ...
-
-        for coeff in self._jitted_coeffs:
-            if coeff.n != idx:
-                continue
-            pass
+        dep_var = root.kfes2depvar(kfes)
+        idx = jxnames.index(dep_var)
 
         if real:
-            dprint1("Add diffusion integrator contribution(real)")
+            dprint1(
+                "Add diffusion and mass integrator contribution(real)", dep_var, idx)
         else:
-            dprint1("Add diffusion integrator contribution(imag)")
+            dprint1(
+                "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
 
-        add_bf_contribution(self, mfem, engine, a, real=real, kfes=kfes)
+        f_coeffs = self._jitted_coeffs
+        kappa, cc, dd = f_coeffs[idx]
+
+        if dd is not None:
+            self.add_integrator(engine, 'diffusion', kappa, a.AddDomainIntegrator,
+                                mfem.DiffusionIntegrator)
+            self.add_integrator(engine, 'mass', dd, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
+        else:  # constant term contribution
+            self.add_integrator(engine, 'mass', kappa, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
@@ -191,7 +185,24 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         else:
             dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
-        from petram.phys.nonlocalj1d.jxx_subs import add_mix_contribution2
+        jxnames = self.get_jx_names()
+        jnlxname = self.get_root_phys().extra_vars_basex
 
-        add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
-                              real=real)
+        paired_model = self.get_root_phys().paired_model
+        mfem_physroot = self.get_root_phys().parent
+        em1d = mfem_physroot[paired_model]
+        var_s = em1d.dep_vars
+        Ename = var_s[0]
+
+        if c == Ename:
+            idx = jxnames.index(r)
+            a, ccoeff, c = self._jitted_coeffs[idx]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        if r == Ename:
+            if not real:  # -j omega
+                omega = 2*np.pi*em1d.freq
+                sc = mfem.ConstantCoefficient(-omega)
+                self.add_integrator(engine, 'jcontribution', sc,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
