@@ -157,7 +157,7 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
     return f_sum
 
 
-def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=5, **kwargs):
+def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=8, **kwargs):
     mm = mmin
     while mm <= mmax:
         fit = calc_decomposition(func, x, mm, xp=xp, viewer=viewer, **kwargs)

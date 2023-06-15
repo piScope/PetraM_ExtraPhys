@@ -47,7 +47,12 @@ data = (('B', VtableElement('bext', type='array',
                                guilabel='nmax',
                                default="3",
                                no_func=True,
-                               tip="maximum number of cyclotron harmonics ")),)
+                               tip="maximum number of cyclotron harmonics ")),
+        ('kprsqr_max', VtableElement('kprsqr_max', type='int',
+                               guilabel='max (kp*rho)^2',
+                               default="15",
+                               no_func=True,
+                               tip="maximum (k_perp * rho)^2 to fit the dispersion curve.")),)
 
 
 class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
@@ -66,13 +71,13 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
             self._nxterms = 0
             self._nmax_bk = -1
 
-        B, dens, temp, masse, charge, nmax = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, nmax, kpr2max = self.vt.make_value_or_expression(
             self)
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
 
         if self._nmax_bk != nmax:
-            fits = jxx_terms(nmax=nmax)
+            fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
             self._approx_computed = True
             total = np.sum([len(fit.c_arr)+1 for fit in fits])
             self._nxterms = total
@@ -103,13 +108,13 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, nmax = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, nmax, kpr2max = self.vt.make_value_or_expression(
             self)
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs import (jxx_terms,
                                                               build_coefficients)
 
-        fits = jxx_terms(nmax=nmax)
+        fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
         self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits,
                                                  self._global_ns, self._local_ns,)
 
