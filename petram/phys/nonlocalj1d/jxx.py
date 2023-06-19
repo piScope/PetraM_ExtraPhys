@@ -43,6 +43,10 @@ data = (('B', VtableElement('bext', type='array',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
+        ('frac_collisions', VtableElement('frac_collisions', type='float',
+                                   guilabel='alpha',
+                                   default="0.0",
+                                   tip="parameter for addi dampingimaginary part of omega (w -> w + jnu))")),
         ('nmax', VtableElement('nmax', type='int',
                                guilabel='nmax',
                                default="3",
@@ -71,7 +75,7 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
             self._nxterms = 0
             self._nmax_bk = -1
 
-        B, dens, temp, masse, charge, nmax, kpr2max = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, fcols, nmax, kpr2max = self.vt.make_value_or_expression(
             self)
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
@@ -108,15 +112,15 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, nmax, kpr2max = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, fcols, nmax, kpr2max = self.vt.make_value_or_expression(
             self)
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs import (jxx_terms,
                                                               build_coefficients)
 
         fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
-        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits,
-                                                 self._global_ns, self._local_ns,)
+        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge,
+                                                 fcols, fits, self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -171,7 +175,7 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
             dprint1(
                 "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
 
-        f_coeffs = self._jitted_coeffs
+        f_coeffs = self._jitted_coeffs[0]
         kappa, cc, dd = f_coeffs[idx]
 
         if dd is not None:
@@ -201,7 +205,7 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
 
         if c == Ename:
             idx = jxnames.index(r)
-            a, ccoeff, c = self._jitted_coeffs[idx]
+            a, ccoeff, c = self._jitted_coeffs[0][idx]
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
@@ -210,4 +214,10 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
                 omega = 2*np.pi*em1d.freq
                 sc = mfem.ConstantCoefficient(-omega)
                 self.add_integrator(engine, 'jcontribution', sc,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            if real:  #  alpha J
+                #omega = 2*np.pi*em1d.freq
+                #sc = mfem.ConstantCoefficient(omega*0.005)
+                alpha = self._jitted_coeffs[1]
+                self.add_integrator(engine, 'jcontribution', alpha, 
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
