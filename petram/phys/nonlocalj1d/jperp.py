@@ -14,7 +14,7 @@ from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jxx')
+dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jperp')
 
 if use_parallel:
     import mfem.par as mfem
@@ -43,6 +43,11 @@ data = (('B', VtableElement('bext', type='array',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
+        ('ky', VtableElement('ky', type='float',
+                             guilabel='ky',
+                             default=0.,
+                             no_func=True,
+                             tip="wave number` in the y direction")),
         ('nmax', VtableElement('nmax', type='int',
                                guilabel='nmax',
                                default="3",
@@ -55,43 +60,46 @@ data = (('B', VtableElement('bext', type='array',
                                      tip="maximum (k_perp * rho)^2 to fit the dispersion curve.")),)
 
 
-class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
+class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_Jxx, self).__init__(**kwargs)
+        super(NonlocalJ1D_Jperp, self).__init__(**kwargs)
 
-    def count_x_terms(self):
+    def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
             return 0
         if not hasattr(self, "_nmax_bk"):
-            self._nxterms = 0
+            self._nxyterms = 0
             self._nmax_bk = -1
 
-        B, dens, temp, masse, charge, nmax, kpr2max = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, ky, nmax, kpr2max = self.vt.make_value_or_expression(
             self)
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jperp_terms
 
         if self._nmax_bk != nmax:
-            fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
+            fits = jperp_terms(nmax=nmax, maxkrsqr=kpr2max)
             self._approx_computed = True
             total = np.sum([len(fit.c_arr)+1 for fit in fits])
-            self._nxterms = total
+            self._nperpterms = total
             self._nmax_bk = nmax
 
-        return int(self._nxterms)
+        return int(self._nperpterms)
 
     def get_jx_names(self):
         base = self.get_root_phys().extra_vars_basex
         return [base + self.name() + str(i+1)
                 for i in range(self.count_x_terms())]
 
+    def count_x_terms(self):
+        return self._count_perp_terms()
+    
     def count_y_terms(self):
-        return 0
+        return self._count_perp_terms()        
 
     def count_z_terms(self):
         return 0
@@ -211,3 +219,4 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
                 sc = mfem.ConstantCoefficient(-omega)
                 self.add_integrator(engine, 'jcontribution', sc,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+

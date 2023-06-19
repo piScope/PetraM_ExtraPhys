@@ -13,7 +13,7 @@
 
 '''
 import numpy as np
-from baryrat import aaa
+#from baryrat import aaa
 
 try:
     from numba import njit, void, int64, float64, complex128, types
@@ -21,6 +21,138 @@ try:
 except ImportError:
     use_numba = False
 
+'''
+AAA
+'''
+class aaa_fit():
+    def __init__(self, z, w, f, scale=1):
+        self.nodes = np.array(z)
+        self.weights = np.array(w)
+        self.values = np.array(f)*scale
+
+    def __call__(self, x):
+        n = np.sum([w*f/(x-z)
+                    for w, f, z in zip(self.weights, self.values, self.nodes)])
+        d = np.sum([w/(x-z)
+                    for w, f, z in zip(self.weights, self.values, self.nodes)])
+        return n/d
+
+def aaa(x, f, tol=1e-10, mmax=-1):
+    '''
+    Y. Tanakzukasa "The AAA algorithm for rational approximation", SIAM Journal on Sci. Comp. (2018)
+    '''
+    # length
+    ll = len(x)
+    if mmax < 0:
+        mmax = ll/10
+    # scale it to one:
+    scale = np.max(f) - np.min(f)
+    f1 = f/scale
+
+    flags = [True]*ll
+
+    idx = np.argmax(f1)
+    flags[idx] = False
+    farr = [f1[idx]]
+    zarr = [x[idx]]
+    weights = [1]
+
+    count = 0
+    while count < mmax:
+        #print("count", count, maxcount)
+        r = aaa_fit(zarr, weights, farr)
+        err = [np.abs(f1[i] - r(x[i]))
+               if flags[i] else 0 for i in range(ll)]
+
+        if np.max(err) < tol:
+            break
+        idx = np.argmax(err)
+        farr.append(f1[idx])
+        zarr.append(x[idx])
+        flags[idx] = False
+
+        mat = np.zeros((ll-len(farr), len(farr)))
+        ii = 0
+        for i in range(ll):
+            if not flags[i]:
+                continue
+            for j in range(len(farr)):
+                mat[ii, j] = (f1[i] - farr[j])/(x[i] - zarr[j])
+            ii = ii + 1
+
+        u, s, vh = np.linalg.svd(mat, full_matrices=True)
+        count = count + 1
+        weights = vh[-1, :]
+
+    r = aaa_fit(zarr, weights, farr, scale=scale)
+
+    return r
+
+def aaaa(x, f, tol=1e-10, mmax=-1):
+    '''
+    array-AAA (set-valued AAA))
+
+       f(N, len(x)) : 2D array
+
+    P. Lietaert. "Automatic rational approximation and linearization of
+    nonlinear eigenvalue problems", IMA Journal of Numerical Analysis (2022)
+    '''
+    # length
+    ll = len(x)
+    N = f.shape[0]
+    if mmax < 0:
+        mmax = ll/10
+    # scale it to one:
+    scales = np.array([np.max(ff) - np.min(ff) for ff in f])
+
+    f1 = np.transpose(f.transpose()/scales)
+
+    flags = [True]*ll
+
+    idx = np.argmax(f1) % ll
+    flags[idx] = False
+    farrs = np.array([f1[i, idx] for i in range(N)]).reshape(N, 1)
+    zarr = [x[idx]]
+    weights = [1]
+
+    count = 0
+    while count < mmax:
+        #print("count", count, maxcount)
+        r = [aaa_fit(zarr, weights, farr)
+             for farr in farrs]
+        err = np.array([[np.abs(f1[j,i] - r[j](x[i]))
+                         if flags[i] else 0 for i in range(ll)]
+                         for j in range(N)])
+
+        if np.max(err) < tol:
+            break
+        idx = np.argmax(err) % ll
+
+        tmp = np.array([f1[i, idx] for i in range(N)]).reshape(N, 1)
+        farrs = np.hstack((farrs, tmp))
+        zarr.append(x[idx])
+        flags[idx] = False
+
+        mat = np.zeros(((ll-len(zarr))*N, len(zarr)))
+        ii = 0
+
+        for kk in range(N):
+            for i in range(ll):
+                if not flags[i]:
+                    continue
+                for j in range(len(zarr)):
+                    mat[ii, j] = (f1[kk][i] - farrs[kk, j])/(x[i] - zarr[j])
+                ii = ii + 1
+
+        u, s, vh = np.linalg.svd(mat, full_matrices=True)
+
+        count = count + 1
+        weights = vh[-1, :]
+
+    ret = [aaa_fit(zarr, weights, farr, scale=s)
+           for farr, s in zip(farrs, scales)]
+
+    return ret
 
 def P(r):
     '''
