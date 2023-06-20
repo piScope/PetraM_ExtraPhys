@@ -11,19 +11,20 @@
 
        number of terms:  mmin - mmax
 
+     find_decompositions(funcs, x, xp=None, viewer=None, mmin=2,  mmax=5, **kwargs)
+
+       a version using set-valued AAA. funcs are approximated using the same roots.
+ 
+
 '''
 import numpy as np
 #from baryrat import aaa
 
-try:
-    from numba import njit, void, int64, float64, complex128, types
-    use_numba = True
-except ImportError:
-    use_numba = False
-
 '''
 AAA
 '''
+
+
 class aaa_fit():
     def __init__(self, z, w, f, scale=1):
         self.nodes = np.array(z)
@@ -36,6 +37,7 @@ class aaa_fit():
         d = np.sum([w/(x-z)
                     for w, f, z in zip(self.weights, self.values, self.nodes)])
         return n/d
+
 
 def aaa(x, f, tol=1e-10, mmax=-1):
     '''
@@ -88,6 +90,7 @@ def aaa(x, f, tol=1e-10, mmax=-1):
 
     return r
 
+
 def aaaa(x, f, tol=1e-10, mmax=-1):
     '''
     array-AAA (set-valued AAA))
@@ -120,9 +123,9 @@ def aaaa(x, f, tol=1e-10, mmax=-1):
         #print("count", count, maxcount)
         r = [aaa_fit(zarr, weights, farr)
              for farr in farrs]
-        err = np.array([[np.abs(f1[j,i] - r[j](x[i]))
+        err = np.array([[np.abs(f1[j, i] - r[j](x[i]))
                          if flags[i] else 0 for i in range(ll)]
-                         for j in range(N)])
+                        for j in range(N)])
 
         if np.max(err) < tol:
             break
@@ -153,6 +156,7 @@ def aaaa(x, f, tol=1e-10, mmax=-1):
            for farr, s in zip(farrs, scales)]
 
     return ret
+
 
 def P(r):
     '''
@@ -220,7 +224,7 @@ class poly_fraction():
 
         for c, d in zip(self.c_arr, self.d_arr):
             txt.append(str((c, d)))
-        return "\n".join(txt)
+        return "\n".join(txt)+"\n"
 
 
 def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
@@ -265,20 +269,7 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
 
     c0 = func(x[0], **kwargs)-tmp
 
-    if use_numba:
-        @njit(complex128(float64))
-        def f_sum(x):
-            value = c0+0j
-            for i in range(len(c_arr)):
-                value = value + c_arr[i] / (x - d_arr[i])
-            # for c, d in zip(c_arr, d_arr):
-            #    value = value + c / (x - d)
-            return value
-        f_sum.c_arr = c_arr
-        f_sum.d_arr = d_arr
-        f_sum.c0 = c0
-    else:
-        f_sum = poly_fraction(c0, c_arr, d_arr)
+    f_sum = poly_fraction(c0, c_arr, d_arr)
 
     fit = np.array([f_sum(xx) for xx in xp])
     if viewer is not None:
@@ -287,6 +278,65 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
             viewer.plot(xp, fit.imag, 'g--')
 
     return f_sum
+
+
+def calc_decompositions(funcs, x, mmax, xp, viewer=None, **kwargs):
+    '''
+    array version
+    '''
+    f = np.vstack([np.array([func(xx, **kwargs) for xx in x])
+                   for func in funcs])
+
+    fps = []
+    for func in funcs:
+        fps.append(np.array([func(xx, **kwargs) for xx in xp]))
+    if viewer is not None:
+        for fp in fps:
+            viewer.plot(np.sqrt(xp), fp, 'r')
+            if np.iscomplexobj(f):
+                viewer.plot(np.sqrt(xp), fp.imag, 'b')
+        viewer.xlabel("sqrt(x)")
+
+    #from baryrat import aaa
+    rall = aaaa(x, f, mmax=mmax, tol=0)
+
+    f_sums = []
+    fits = []
+    for r, func in zip(rall, funcs):
+        poly_p = P(r)
+        poly_q = Q(r)
+        poly_q_prime = poly_q.deriv()
+
+        roots = np.roots(poly_q)
+
+        c_arr = []
+        d_arr = []
+        for root in roots:
+            c_arr.append(poly_p(root)/poly_q_prime(root))
+            d_arr.append(root)
+
+        c_arr = np.array(c_arr)
+        d_arr = np.array(d_arr)
+
+        tmp = 0j
+        for c, d in zip(c_arr, d_arr):
+            tmp = tmp + c/(x[0]-d)
+
+        c0 = func(x[0], **kwargs)-tmp
+        f_sum = poly_fraction(c0, c_arr, d_arr)
+        fit = np.array([f_sum(xx) for xx in xp])
+        f_sums.append(f_sum)
+        fits.append(fit)
+
+    if viewer is not None:
+        for fit in fits:
+            viewer.plot(np.sqrt(xp), fit, 'g--')
+            if np.iscomplexobj(f):
+                viewer.plot(np.sqrt(xp), fit.imag, 'g--')
+
+    errors = [np.max(np.abs(fp - fit)) for fp, fit in zip(fps, fits)]
+
+    return f_sums, errors
 
 
 def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=8, **kwargs):
@@ -301,3 +351,33 @@ def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=8, **kwargs):
     success = np.all([d.real < 0 for d in fit.d_arr])
 
     return fit, success
+
+
+def find_decompositions(funcs, krmax=20, viewer=None, mmin=3, mmax=15, **kwargs):
+    L = np.linspace(0, krmax, 401)
+    L = L*L
+    L2 = np.linspace(0, krmax**2, 2501)
+
+    mm = mmin
+    success = False
+    while mm <= mmax:
+        fit, errors = calc_decompositions(
+            funcs, L, mm, xp=L2, viewer=viewer, **kwargs)
+
+        d_arr = fit[0].d_arr
+        fail = False
+        for d in d_arr:
+            if d.imag == 0 and d.real > 0:
+                fail = True
+        if fail:
+            mm = mm + 1
+            continue
+        for d in d_arr:
+            if d.imag == 0 and d.real < 0:
+                success = True
+                break
+        if success:
+            break
+        mm = mm + 1
+
+    return fit, success, max(errors)

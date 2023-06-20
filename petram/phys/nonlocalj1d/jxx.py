@@ -44,19 +44,19 @@ data = (('B', VtableElement('bext', type='array',
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
         ('frac_collisions', VtableElement('frac_collisions', type='float',
-                                   guilabel='alpha',
-                                   default="0.0",
-                                   tip="parameter for addi dampingimaginary part of omega (w -> w + jnu))")),
+                                          guilabel='alpha',
+                                          default="0.0",
+                                          tip="additional damping due to non-local current(sigma*Jhot)")),
         ('nmax', VtableElement('nmax', type='int',
                                guilabel='nmax',
                                default="3",
                                no_func=True,
                                tip="maximum number of cyclotron harmonics ")),
         ('kprsqr_max', VtableElement('kprsqr_max', type='int',
-                                     guilabel='max (kp*rho)^2',
+                                     guilabel='max (kp*rho)',
                                      default="15",
                                      no_func=True,
-                                     tip="maximum (k_perp * rho)^2 to fit the dispersion curve.")),)
+                                     tip="maximum (k_perp * rho) to fit the dispersion curve.")),)
 
 
 class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
@@ -74,18 +74,21 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         if not hasattr(self, "_nmax_bk"):
             self._nxterms = 0
             self._nmax_bk = -1
+            self._kprmax_bk = 0
 
-        B, dens, temp, masse, charge, fcols, nmax, kpr2max = self.vt.make_value_or_expression(
+        self.vt.preprocess_params(self)
+        B, dens, temp, masse, charge, fcols, nmax, kprmax = self.vt.make_value_or_expression(
             self)
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jxx_terms
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import jxx_terms
 
-        if self._nmax_bk != nmax:
-            fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
+        if self._nmax_bk != nmax or self._kprmax_bk != kprmax:
+            fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2)
             self._approx_computed = True
             total = np.sum([len(fit.c_arr)+1 for fit in fits])
             self._nxterms = total
             self._nmax_bk = nmax
+            self._kprmax_bk = kprmax
 
         return int(self._nxterms)
 
@@ -112,15 +115,15 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, fcols, nmax, kpr2max = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, fcols, nmax, kprmax = self.vt.make_value_or_expression(
             self)
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import (jxx_terms,
-                                                              build_coefficients)
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import (jxx_terms,
+                                                                 build_xx_coefficients)
 
-        fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
-        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge,
-                                                 fcols, fits, self._global_ns, self._local_ns,)
+        fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2)
+        self._jitted_coeffs = build_xx_coefficients(ind_vars, omega, B, dens, temp, mass, charge,
+                                                    fcols, fits, self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -176,6 +179,7 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
                 "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
 
         f_coeffs = self._jitted_coeffs[0]
+        print("length here", len(f_coeffs))
         kappa, cc, dd = f_coeffs[idx]
 
         if dd is not None:
@@ -215,9 +219,9 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
                 sc = mfem.ConstantCoefficient(-omega)
                 self.add_integrator(engine, 'jcontribution', sc,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            if real:  #  alpha J
+            if real:  # alpha J
                 #omega = 2*np.pi*em1d.freq
                 #sc = mfem.ConstantCoefficient(omega*0.005)
                 alpha = self._jitted_coeffs[1]
-                self.add_integrator(engine, 'jcontribution', alpha, 
+                self.add_integrator(engine, 'jcontribution', alpha,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)

@@ -390,8 +390,9 @@ class NonlocalJ1D(PhysModule):
 
     def get_possible_domain(self):
         from petram.phys.nonlocalj1d.jxx import NonlocalJ1D_Jxx
+        from petram.phys.nonlocalj1d.jperp import NonlocalJ1D_Jperp
         from petram.phys.nonlocalj1d.jhot import NonlocalJ1D_Jhot
-        doms = [NonlocalJ1D_Jhot, NonlocalJ1D_Jxx]
+        doms = [NonlocalJ1D_Jhot, NonlocalJ1D_Jxx, NonlocalJ1D_Jperp]
         doms.extend(super(NonlocalJ1D, self).get_possible_domain())
 
         return doms

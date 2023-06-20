@@ -43,11 +43,20 @@ data = (('B', VtableElement('bext', type='array',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
+        ('frac_collisions', VtableElement('frac_collisions', type='float',
+                                          guilabel='alpha',
+                                          default="0.0",
+                                          tip="additional damping due to non-local current(sigma*Jhot)")),
         ('ky', VtableElement('ky', type='float',
                              guilabel='ky',
                              default=0.,
                              no_func=True,
                              tip="wave number` in the y direction")),
+        ('kz', VtableElement('kz', type='float',
+                             guilabel='kz',
+                             default=0.,
+                             no_func=True,
+                             tip="wave number` in the z direction")),
         ('nmax', VtableElement('nmax', type='int',
                                guilabel='nmax',
                                default="3",
@@ -57,7 +66,12 @@ data = (('B', VtableElement('bext', type='array',
                                      guilabel='max (kp*rho)^2',
                                      default="15",
                                      no_func=True,
-                                     tip="maximum (k_perp * rho)^2 to fit the dispersion curve.")),)
+                                     tip="maximum (k_perp * rho)^2 to fit the dispersion curve.")),
+        ('mmin', VtableElement('mmin', type='int',
+                               guilabel='#terms',
+                               default="4",
+                               no_func=True,
+                               tip="minimum number of terms for rational approximation.")),)
 
 
 class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
@@ -75,18 +89,23 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         if not hasattr(self, "_nmax_bk"):
             self._nxyterms = 0
             self._nmax_bk = -1
+            self._kprmax_bk = -1.0
+            self._mmin_bk = -1
 
-        B, dens, temp, masse, charge, ky, nmax, kpr2max = self.vt.make_value_or_expression(
+        self.vt.preprocess_params(self)
+        B, dens, temp, masse, charge, alpha, ky, kz, nmax, kprmax, mmin = self.vt.make_value_or_expression(
             self)
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import jperp_terms
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
 
-        if self._nmax_bk != nmax:
-            fits = jperp_terms(nmax=nmax, maxkrsqr=kpr2max)
+        if self._nmax_bk != nmax or self._kprmax_bk != kprmax or self._mmin_bk != mmin:
+            fits = jperp_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin)
             self._approx_computed = True
-            total = np.sum([len(fit.c_arr)+1 for fit in fits])
+            total = 1 + len(fits[0].c_arr)
             self._nperpterms = total
             self._nmax_bk = nmax
+            self._kprmax_bk = kprmax
+            self._mmin_bk = mmin
 
         return int(self._nperpterms)
 
@@ -95,11 +114,16 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         return [base + self.name() + str(i+1)
                 for i in range(self.count_x_terms())]
 
+    def get_jy_names(self):
+        base = self.get_root_phys().extra_vars_basey
+        return [base + self.name() + str(i+1)
+                for i in range(self.count_y_terms())]
+
     def count_x_terms(self):
         return self._count_perp_terms()
-    
+
     def count_y_terms(self):
-        return self._count_perp_terms()        
+        return self._count_perp_terms()
 
     def count_z_terms(self):
         return 0
@@ -116,15 +140,16 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, nmax, kpr2max = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, alpha, ky, kz,  nmax, kprmax, mmin = self.vt.make_value_or_expression(
             self)
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs import (jxx_terms,
-                                                              build_coefficients)
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import (jperp_terms,
+                                                                   build_perp_coefficients)
 
-        fits = jxx_terms(nmax=nmax, maxkrsqr=kpr2max)
-        self._jitted_coeffs = build_coefficients(ind_vars, omega, B, dens, temp, mass, charge, fits,
-                                                 self._global_ns, self._local_ns,)
+        fits = jperp_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin)
+        self._jitted_coeffs = build_perp_coefficients(ind_vars, ky, kz, omega, B, dens,
+                                                      temp, mass, charge, alpha, fits,
+                                                      self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -135,9 +160,12 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
-        check = root.check_kfes(kfes)
-        if check == 3:
+        dep_var = root.kfes2depvar(kfes)
+        if dep_var in self.get_jx_names():
             return True
+        if dep_var in self.get_jy_names():
+            return True
+        return False
 
     def has_mixed_contribution(self):
         return True
@@ -149,28 +177,43 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         nabla^2 Jx1 - d2 = c2 * E
         nabla^2 Jx3 - d1 = c3 * E
         '''
-        Jnlxname = self.get_root_phys().extra_vars_basex
-        Jnlterms = self.get_jx_names()
+        Jnlxterms = self.get_jx_names()
+        Jnlyterms = self.get_jy_names()
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         var_s = mfem_physroot[paired_model].dep_vars
-        Ename = var_s[0]
+        Exname = var_s[0]
+        Eyname = var_s[1]
 
         loc = []
-        for n in Jnlterms:
-            loc.append((n, Ename, 1, 1))
-        for n in Jnlterms:
-            loc.append((Ename, n, 1, 1))
+        for n in Jnlxterms:   # Ex -> Jx
+            loc.append((n, Exname, 1, 1))
+        for n in Jnlxterms:   # Ey -> Jx
+            loc.append((n, Eyname, 1, 1))
+        for n in Jnlxterms:   # Jx -> Ex
+            loc.append((Exname, n, 1, 1))
+
+        for n in Jnlyterms:    # Ex -> Jy
+            loc.append((n, Exname, 1, 1))
+        for n in Jnlyterms:    # Ey -> Jy
+            loc.append((n, Eyname, 1, 1))
+        for n in Jnlyterms:    # Jy -> Ey
+            loc.append((Eyname, n, 1, 1))
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
 
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
-        idx = jxnames.index(dep_var)
+
+        if dep_var in jxnames:
+            idx = jxnames.index(dep_var)
+        if dep_var in jynames:
+            idx = jynames.index(dep_var)
 
         if real:
             dprint1(
@@ -179,14 +222,16 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             dprint1(
                 "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
 
-        f_coeffs = self._jitted_coeffs
-        kappa, cc, dd = f_coeffs[idx]
+        coeffs, _coeff5 = self._jitted_coeffs
 
-        if dd is not None:
+        kappa = coeffs["kappa"]
+        if idx != 0:
             self.add_integrator(engine, 'diffusion', kappa, a.AddDomainIntegrator,
                                 mfem.DiffusionIntegrator)
+            dd = coeffs["dterms"][idx-1]
             self.add_integrator(engine, 'mass', dd, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
+
         else:  # constant term contribution
             self.add_integrator(engine, 'mass', kappa, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
@@ -199,24 +244,69 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
         jxnames = self.get_jx_names()
-        jnlxname = self.get_root_phys().extra_vars_basex
+        jynames = self.get_jy_names()
+
+        if r in jxnames:
+            jx = True
+            idx = jxnames.index(r)
+            if idx == 0:
+                slot = self._jitted_coeffs[0]["c0"]
+            else:
+                slot = self._jitted_coeffs[0]["cterms"][idx-1]
+        if r in jynames:
+            jx = False
+            idx = jynames.index(r)
+            if idx == 0:
+                slot = self._jitted_coeffs[0]["c0"]
+            else:
+                slot = self._jitted_coeffs[0]["cterms"][idx-1]
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         em1d = mfem_physroot[paired_model]
         var_s = em1d.dep_vars
-        Ename = var_s[0]
+        Exname = var_s[0]
+        Eyname = var_s[1]
 
-        if c == Ename:
-            idx = jxnames.index(r)
-            a, ccoeff, c = self._jitted_coeffs[idx]
+        if c == Exname and jx:
+            # Ex -> Jx
+            ccoeff = slot["diag"]
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+        elif c == Exname and not jx:
+            # Ex -> Jy
+            ccoeff = slot["yx"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["cross_grad"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        elif c == Eyname and jx:
+            # Ey -> Jx
+            ccoeff = slot["xy"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["cross_grad"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        elif c == Eyname and not jx:
+            # Ey -> Jy
+            ccoeff = slot["diag"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["diffusion"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
 
-        if r == Ename:
+        elif r == Exname or r == Eyname:
             if not real:  # -j omega
                 omega = 2*np.pi*em1d.freq
                 sc = mfem.ConstantCoefficient(-omega)
                 self.add_integrator(engine, 'jcontribution', sc,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
+            if real:  # alpha J
+                #omega = 2*np.pi*em1d.freq
+                #sc = mfem.ConstantCoefficient(omega*0.005)
+                alpha = self._jitted_coeffs[1]
+                self.add_integrator(engine, 'jcontribution', alpha,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
