@@ -179,7 +179,6 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
                 "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
 
         f_coeffs = self._jitted_coeffs[0]
-        print("length here", len(f_coeffs))
         kappa, cc, dd = f_coeffs[idx]
 
         if dd is not None:

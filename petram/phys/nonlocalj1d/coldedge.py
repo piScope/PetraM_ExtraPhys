@@ -60,18 +60,21 @@ class NonlocalJ1D_ColdEdge(Bdry, Phys):
         dep_var = root.kfes2depvar(kfes)
         if check in (0, 3):
             c0 = jx0
+            txt = " (x component)"
         elif check in (1, 4):
             c0 = jy0
+            txt = " (y component)"
         elif check in (2, 5):
             c0 = jz0
+            txt = " (z component)"
         else:
             assert False, 'Unknown check return value'
         if real:
             dprint1("Apply Ess.(real)" + str(self._sel_index),
-                    'kfes', kfes, dep_var, c0)
+                    'kfes', kfes, dep_var, c0, txt)
         else:
             dprint1("Apply Ess.(imag)" + str(self._sel_index),
-                    'kfes', kfes, dep_var, c0)
+                    'kfes', kfes, dep_var, c0, txt)
 
         name = self.get_root_phys().dep_vars[0]
         fes = engine.get_fes(self.get_root_phys(), name=name)

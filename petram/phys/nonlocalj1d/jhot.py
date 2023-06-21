@@ -102,7 +102,7 @@ class NonlocalJ1D_Jhot(NonlocalJ1D_BaseDomain):
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
         if real:
-            dprint1("Add diffusion integrator contribution(real)", "kfes=", kfes)
+            dprint1("Add mass integrator contribution(real)", "kfes=", kfes)
         else:
             return
 

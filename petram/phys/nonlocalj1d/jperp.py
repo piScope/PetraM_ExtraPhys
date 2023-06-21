@@ -63,10 +63,10 @@ data = (('B', VtableElement('bext', type='array',
                                no_func=True,
                                tip="maximum number of cyclotron harmonics ")),
         ('kprsqr_max', VtableElement('kprsqr_max', type='int',
-                                     guilabel='max (kp*rho)^2',
+                                     guilabel='max (kp*rho)',
                                      default="15",
                                      no_func=True,
-                                     tip="maximum (k_perp * rho)^2 to fit the dispersion curve.")),
+                                     tip="maximum (k_perp * rho) to fit the dispersion curve.")),
         ('mmin', VtableElement('mmin', type='int',
                                guilabel='#terms',
                                default="4",
@@ -99,7 +99,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
 
         if self._nmax_bk != nmax or self._kprmax_bk != kprmax or self._mmin_bk != mmin:
-            fits = jperp_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin)
+            fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin)
             self._approx_computed = True
             total = 1 + len(fits[0].c_arr)
             self._nperpterms = total
@@ -146,7 +146,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import (jperp_terms,
                                                                    build_perp_coefficients)
 
-        fits = jperp_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin)
+        # nmax +1 to use recurrent rules for the bessel functions.
+        fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin)
         self._jitted_coeffs = build_perp_coefficients(ind_vars, ky, kz, omega, B, dens,
                                                       temp, mass, charge, alpha, fits,
                                                       self._global_ns, self._local_ns,)
@@ -215,36 +216,39 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         if dep_var in jynames:
             idx = jynames.index(dep_var)
 
-        if real:
-            dprint1(
-                "Add diffusion and mass integrator contribution(real)", dep_var, idx)
-        else:
-            dprint1(
-                "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
-
         coeffs, _coeff5 = self._jitted_coeffs
 
         kappa = coeffs["kappa"]
         if idx != 0:
-            self.add_integrator(engine, 'diffusion', kappa, a.AddDomainIntegrator,
+            message = "Add diffusion and mass integrator contribution"
+            self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
                                 mfem.DiffusionIntegrator)
             dd = coeffs["dterms"][idx-1]
-            self.add_integrator(engine, 'mass', dd, a.AddDomainIntegrator,
+            self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
 
         else:  # constant term contribution
-            self.add_integrator(engine, 'mass', kappa, a.AddDomainIntegrator,
-                                mfem.MassIntegrator)
+
+            if real:
+                message = "Add mass integrator contribution"
+                coeff = mfem.ConstantCoefficient(-1)
+                self.add_integrator(engine, 'mass', coeff, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+            else:
+                message = "No integrator contribution"
+        if real:
+            dprint1(message, "(real)",  dep_var, idx)
+        else:
+            dprint1(message, "(imag)",  dep_var, idx)
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
-        if real:
-            dprint1("Add mixed contribution(real)"  "r/c", r, c, is_trans)
-        else:
-            dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
         jxnames = self.get_jx_names()
         jynames = self.get_jy_names()
+
+        idx = -1
+        jx = False
 
         if r in jxnames:
             jx = True
@@ -261,6 +265,11 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             else:
                 slot = self._jitted_coeffs[0]["cterms"][idx-1]
 
+        if real:
+            dprint1("Add mixed contribution(real)"  "r/c", r, c, idx, jx)
+        else:
+            dprint1("Add mixed contribution(imag)"  "r/c", r, c, idx, jx)
+
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         em1d = mfem_physroot[paired_model]
@@ -273,30 +282,31 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             ccoeff = slot["diag"]
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-        elif c == Exname and not jx:
-            # Ex -> Jy
-            ccoeff = slot["yx"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            ccoeff = slot["cross_grad"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        elif c == Eyname and jx:
-            # Ey -> Jx
-            ccoeff = slot["xy"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            ccoeff = slot["cross_grad"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        elif c == Eyname and not jx:
-            # Ey -> Jy
-            ccoeff = slot["diag"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            ccoeff = slot["diffusion"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+
+#        elif c == Exname and not jx:
+#            # Ex -> Jy
+#            ccoeff = slot["yx"]
+#            self.add_integrator(engine, 'cterm', ccoeff,
+#                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+#            ccoeff = slot["cross_grad"]
+#            self.add_integrator(engine, 'cterm', ccoeff,
+#                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+#        elif c == Eyname and jx:
+#            # Ey -> Jx
+#            ccoeff = slot["xy"]
+#            self.add_integrator(engine, 'cterm', ccoeff,
+#                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+#            ccoeff = slot["cross_grad"]
+#            self.add_integrator(engine, 'cterm', ccoeff,
+#                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+#        elif c == Eyname and not jx:
+#            # Ey -> Jy
+#            ccoeff = slot["diag"]
+#            self.add_integrator(engine, 'cterm', ccoeff,
+#                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+#            ccoeff = slot["diffusion"]
+#            self.add_integrator(engine, 'cterm', ccoeff,
+#                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
 
         elif r == Exname or r == Eyname:
             if not real:  # -j omega
@@ -305,8 +315,6 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                 self.add_integrator(engine, 'jcontribution', sc,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
             if real:  # alpha J
-                #omega = 2*np.pi*em1d.freq
-                #sc = mfem.ConstantCoefficient(omega*0.005)
                 alpha = self._jitted_coeffs[1]
                 self.add_integrator(engine, 'jcontribution', alpha,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
