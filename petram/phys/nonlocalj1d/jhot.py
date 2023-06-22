@@ -66,7 +66,13 @@ class NonlocalJ1D_Jhot(NonlocalJ1D_BaseDomain):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check in (0, 1, 2):
+        dir = self.j_direction
+
+        if check == 0 and dir == 'x':
+            return True
+        if check == 1 and dir == 'y':
+            return True
+        if check == 2 and dir == 'z':
             return True
         return False
 

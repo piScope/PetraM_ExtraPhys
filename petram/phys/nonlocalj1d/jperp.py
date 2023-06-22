@@ -153,6 +153,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         v['ra_mmin'] = 7
         v['An_mode'] = "kpara->0"
         v['use_4_components'] = "xx-xy-yx-yy"
+        v['debug_option'] = ''
         return v
 
     def panel1_param(self):
@@ -160,10 +161,11 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz"]}],
                        ["Components", None, 1, {
                            "values": ["xx only", "xx-xy-yx-yy"]}],
-                       ["max.cycltron harm.", None, 400, {}],
+                       ["cyclotron harms.", None, 400, {}],
                        #["-> RA. options", None, None, {"no_tlw_resize": True}],
-                       ["kperp_max. ", None, 300, {}],
-                       ["#terms min. ", None, 400, {}], ])
+                       ["kperp_max.", None, 300, {}],
+                       ["#terms min. ", None, 400, {}],
+                       ["debug opts.", '', 0, {}], ])
         # ["<-"],])
 
         return panels
@@ -171,18 +173,19 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
     def get_panel1_value(self):
         values = super(NonlocalJ1D_Jperp, self).get_panel1_value()
         values.extend([self.An_mode, self.use_4_components,
-                       self.ra_nmax, self.ra_kprmax, self.ra_mmin])
+                       self.ra_nmax, self.ra_kprmax, self.ra_mmin,
+                       self.debug_option])
         return values
 
     def import_panel1_value(self, v):
 
         check = super(NonlocalJ1D_Jperp, self).import_panel1_value(v)
-        print("value", v)
-        self.An_mode = str(v[-5])
-        self.use_4_components = str(v[-4])
-        self.ra_nmax = int(v[-3])
-        self.ra_kprmax = float(v[-2])
-        self.ra_mmin = int(v[-1])
+        self.An_mode = str(v[-6])
+        self.use_4_components = str(v[-5])
+        self.ra_nmax = int(v[-4])
+        self.ra_kprmax = float(v[-3])
+        self.ra_mmin = int(v[-2])
+        self.debug_option = str(v[-1])
         return True
 
     def has_bf_contribution(self, kfes):
@@ -306,8 +309,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         if c == Exname and jx:
             # Ex -> Jx
             ccoeff = slot["diag"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+        #    self.add_integrator(engine, 'cterm', ccoeff,
+        #                        mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
         elif c == Exname and not jx:
             # Ex -> Jy
@@ -335,6 +338,9 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                                 mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
 
         elif r == Exname or r == Eyname:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
             if not real:  # -j omega
                 omega = 2*np.pi*em1d.freq
                 sc = mfem.ConstantCoefficient(-omega)
