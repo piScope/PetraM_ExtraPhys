@@ -56,22 +56,7 @@ data = (('B', VtableElement('bext', type='array',
                              guilabel='kz',
                              default=0.,
                              no_func=True,
-                             tip="wave number` in the z direction")),
-        ('nmax', VtableElement('nmax', type='int',
-                               guilabel='nmax',
-                               default="3",
-                               no_func=True,
-                               tip="maximum number of cyclotron harmonics ")),
-        ('kprsqr_max', VtableElement('kprsqr_max', type='int',
-                                     guilabel='max (kp*rho)',
-                                     default="15",
-                                     no_func=True,
-                                     tip="maximum (k_perp * rho) to fit the dispersion curve.")),
-        ('mmin', VtableElement('mmin', type='int',
-                               guilabel='#terms',
-                               default="4",
-                               no_func=True,
-                               tip="minimum number of terms for rational approximation.")),)
+                             tip="wave number` in the z direction")),)
 
 
 class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
@@ -93,8 +78,11 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, alpha, ky, kz, nmax, kprmax, mmin = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, alpha, ky, kz = self.vt.make_value_or_expression(
             self)
+        nmax = self.ra_nmax
+        kprmax = self.ra_kprmax
+        mmin = self.ra_mmin
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
 
@@ -140,9 +128,11 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, alpha, ky, kz,  nmax, kprmax, mmin = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, alpha, ky, kz = self.vt.make_value_or_expression(
             self)
-
+        nmax = self.ra_nmax
+        kprmax = self.ra_kprmax
+        mmin = self.ra_mmin
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import (jperp_terms,
                                                                    build_perp_coefficients)
 
@@ -150,6 +140,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin)
         self._jitted_coeffs = build_perp_coefficients(ind_vars, ky, kz, omega, B, dens,
                                                       temp, mass, charge, alpha, fits,
+                                                      self.An_mode, self.use_4_components,
                                                       self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
@@ -157,7 +148,42 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         Phys.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
+        v['ra_nmax'] = 5
+        v['ra_kprmax'] = 15
+        v['ra_mmin'] = 7
+        v['An_mode'] = "kpara->0"
+        v['use_4_components'] = "xx-xy-yx-yy"
         return v
+
+    def panel1_param(self):
+        panels = super(NonlocalJ1D_Jperp, self).panel1_param()
+        panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz"]}],
+                       ["Components", None, 1, {
+                           "values": ["xx only", "xx-xy-yx-yy"]}],
+                       ["max.cycltron harm.", None, 400, {}],
+                       #["-> RA. options", None, None, {"no_tlw_resize": True}],
+                       ["kperp_max. ", None, 300, {}],
+                       ["#terms min. ", None, 400, {}], ])
+        # ["<-"],])
+
+        return panels
+
+    def get_panel1_value(self):
+        values = super(NonlocalJ1D_Jperp, self).get_panel1_value()
+        values.extend([self.An_mode, self.use_4_components,
+                       self.ra_nmax, self.ra_kprmax, self.ra_mmin])
+        return values
+
+    def import_panel1_value(self, v):
+
+        check = super(NonlocalJ1D_Jperp, self).import_panel1_value(v)
+        print("value", v)
+        self.An_mode = str(v[-5])
+        self.use_4_components = str(v[-4])
+        self.ra_nmax = int(v[-3])
+        self.ra_kprmax = float(v[-2])
+        self.ra_mmin = int(v[-1])
+        return True
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
@@ -283,30 +309,30 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
-#        elif c == Exname and not jx:
-#            # Ex -> Jy
-#            ccoeff = slot["yx"]
-#            self.add_integrator(engine, 'cterm', ccoeff,
-#                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-#            ccoeff = slot["cross_grad"]
-#            self.add_integrator(engine, 'cterm', ccoeff,
-#                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-#        elif c == Eyname and jx:
-#            # Ey -> Jx
-#            ccoeff = slot["xy"]
-#            self.add_integrator(engine, 'cterm', ccoeff,
-#                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-#            ccoeff = slot["cross_grad"]
-#            self.add_integrator(engine, 'cterm', ccoeff,
-#                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-#        elif c == Eyname and not jx:
-#            # Ey -> Jy
-#            ccoeff = slot["diag"]
-#            self.add_integrator(engine, 'cterm', ccoeff,
-#                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-#            ccoeff = slot["diffusion"]
-#            self.add_integrator(engine, 'cterm', ccoeff,
-#                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+        elif c == Exname and not jx:
+            # Ex -> Jy
+            ccoeff = -slot["xy"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["cross_grad"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        elif c == Eyname and jx:
+            # Ey -> Jx
+            ccoeff = slot["xy"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["cross_grad"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        elif c == Eyname and not jx:
+            # Ey -> Jy
+            ccoeff = slot["diag"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["diffusion"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
 
         elif r == Exname or r == Eyname:
             if not real:  # -j omega
