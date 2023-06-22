@@ -309,8 +309,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         if c == Exname and jx:
             # Ex -> Jx
             ccoeff = slot["diag"]
-        #    self.add_integrator(engine, 'cterm', ccoeff,
-        #                        mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
         elif c == Exname and not jx:
             # Ex -> Jy
