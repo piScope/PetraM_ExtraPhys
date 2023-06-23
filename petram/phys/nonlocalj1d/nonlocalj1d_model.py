@@ -357,8 +357,11 @@ class NonlocalJ1D(PhysModule):
         return panels
 
     def get_panel1_value(self):
-        names = ', '.join(self.dep_vars)
-        name2 = ', '.join(self.der_vars)
+        import textwrap
+
+        names = '\n'.join(textwrap.wrap(', '.join(self.dep_vars), width=50))
+        name2 = '\n'.join(textwrap.wrap(', '.join(self.der_vars), width=50))
+
         val = super(NonlocalJ1D, self).get_panel1_value()
 
         from petram.utils import pm_get_gui_value

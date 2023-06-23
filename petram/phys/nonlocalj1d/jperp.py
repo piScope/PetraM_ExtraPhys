@@ -163,8 +163,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                            "values": ["xx only", "xx-xy-yx-yy"]}],
                        ["cyclotron harms.", None, 400, {}],
                        #["-> RA. options", None, None, {"no_tlw_resize": True}],
-                       ["kperp_max.", None, 300, {}],
-                       ["#terms min. ", None, 400, {}],
+                       ["max (kp*rho)", None, 300, {}],
+                       ["#terms min.", None, 400, {}],
                        ["debug opts.", '', 0, {}], ])
         # ["<-"],])
 
