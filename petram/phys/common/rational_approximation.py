@@ -260,8 +260,9 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
     c_arr = np.array(c_arr)
     d_arr = np.array(d_arr)
 
-    if not np.all([d.real < 0 for d in roots]):
-        return None
+    if np.any([d.real > 0 and d.imag == 0 for d in roots]):
+        import warnings
+        warnings.warn("Decomposition is not stable. ", RuntimeWarning)
 
     tmp = 0j
     for c, d in zip(c_arr, d_arr):
@@ -315,6 +316,10 @@ def calc_decompositions(funcs, x, mmax, xp, viewer=None, **kwargs):
             c_arr.append(poly_p(root)/poly_q_prime(root))
             d_arr.append(root)
 
+        if np.any([d.real > 0 and d.imag == 0 for d in roots]):
+            import warnings
+            warnings.warn("Decomposition is not stable. ", RuntimeWarning)
+
         c_arr = np.array(c_arr)
         d_arr = np.array(d_arr)
 
@@ -353,16 +358,16 @@ def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=8, **kwargs):
     return fit, success
 
 
-def find_decompositions(funcs, krmax=20, viewer=None, mmin=3, mmax=15, **kwargs):
-    L = np.linspace(0, krmax, 401)
-    L = L*L
-    L2 = np.linspace(0, krmax**2, 2501)
+def find_decompositions(funcs, x, viewer=None, xp=None,
+                        mmin=3, mmax=15, **kwargs):
+    if xp is None:
+        xp = x
 
     mm = mmin
     success = False
     while mm <= mmax:
         fit, errors = calc_decompositions(
-            funcs, L, mm, xp=L2, viewer=viewer, **kwargs)
+            funcs, x, mm, xp=xp, viewer=viewer, **kwargs)
 
         d_arr = fit[0].d_arr
         fail = False

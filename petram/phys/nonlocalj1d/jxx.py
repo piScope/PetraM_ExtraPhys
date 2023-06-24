@@ -46,17 +46,7 @@ data = (('B', VtableElement('bext', type='array',
         ('frac_collisions', VtableElement('frac_collisions', type='float',
                                           guilabel='alpha',
                                           default="0.0",
-                                          tip="additional damping due to non-local current(sigma*Jhot)")),
-        ('nmax', VtableElement('nmax', type='int',
-                               guilabel='nmax',
-                               default="3",
-                               no_func=True,
-                               tip="maximum number of cyclotron harmonics ")),
-        ('kprsqr_max', VtableElement('kprsqr_max', type='int',
-                                     guilabel='max (kp*rho)',
-                                     default="15",
-                                     no_func=True,
-                                     tip="maximum (k_perp * rho) to fit the dispersion curve.")),)
+                                          tip="additional damping due to non-local current(sigma*Jhot)")),)
 
 
 class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
@@ -77,13 +67,18 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
             self._kprmax_bk = 0
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, fcols, nmax, kprmax = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, fcols = self.vt.make_value_or_expression(
             self)
+        nmax = self.ra_nmax
+        kprmax = self.ra_kprmax
+        mmin = self.ra_mmin
+        ngrid = self.ra_ngrid
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import jxx_terms
 
         if self._nmax_bk != nmax or self._kprmax_bk != kprmax:
-            fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2)
+            fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2,
+                             mmin=mmin, mmax=mmin, ngrid=ngrid)
             self._approx_computed = True
             total = np.sum([len(fit.c_arr)+1 for fit in fits])
             self._nxterms = total
@@ -115,13 +110,18 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, fcols, nmax, kprmax = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, fcols = self.vt.make_value_or_expression(
             self)
+        nmax = self.ra_nmax
+        kprmax = self.ra_kprmax
+        mmin = self.ra_mmin
+        ngrid = self.ra_ngrid
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import (jxx_terms,
                                                                  build_xx_coefficients)
 
-        fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2)
+        fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin,
+                         mmax=mmin, ngrid=ngrid)
         self._jitted_coeffs = build_xx_coefficients(ind_vars, omega, B, dens, temp, mass, charge,
                                                     fcols, fits, self._global_ns, self._local_ns,)
 
@@ -130,7 +130,52 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         Phys.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
+        v['ra_nmax'] = 5
+        v['ra_kprmax'] = 15
+        v['ra_mmin'] = 3
+        v['ra_ngrid'] = 300
+        v['debug_option'] = ''
         return v
+
+    def plot_approx(self, evt):
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import plot_terms
+
+        nmax = self.ra_nmax
+        kprmax = self.ra_kprmax
+        mmin = self.ra_mmin
+        ngrid = self.ra_ngrid
+
+        plot_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin, ngrid=ngrid)
+
+    def panel1_param(self):
+        panels = super(NonlocalJ1D_Jxx, self).panel1_param()
+        panels.extend([["cyclotron harms.", None, 400, {}],
+                       #["-> RA. options", None, None, {"no_tlw_resize": True}],
+                       ["RA max kp*rho", None, 300, {}],
+                       ["RA #terms.", None, 400, {}],
+                       ["RA #grid.", None, 400, {}],
+                       # ["debug opts.", '', 0, {}], ])
+                       [None, None, 341, {"label": "RA.",
+                                          "func": 'plot_approx', "noexpand": True}], ])
+        # ["<-"],])
+
+        return panels
+
+    def get_panel1_value(self):
+        values = super(NonlocalJ1D_Jxx, self).get_panel1_value()
+        values.extend([self.ra_nmax, self.ra_kprmax, self.ra_mmin, self.ra_ngrid,
+                       self])
+        return values
+
+    def import_panel1_value(self, v):
+
+        check = super(NonlocalJ1D_Jxx, self).import_panel1_value(v)
+        self.ra_nmax = int(v[-5])
+        self.ra_kprmax = float(v[-4])
+        self.ra_mmin = int(v[-3])
+        self.ra_ngrid = int(v[-2])
+        #self.debug_option = str(v[-1])
+        return True
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()

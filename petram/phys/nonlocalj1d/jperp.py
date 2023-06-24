@@ -83,17 +83,20 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
         mmin = self.ra_mmin
+        ngrid = self.ra_ngrid
 
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
 
-        if self._nmax_bk != nmax or self._kprmax_bk != kprmax or self._mmin_bk != mmin:
-            fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin)
+        if (self._nmax_bk != nmax or self._kprmax_bk != kprmax or self._mmin_bk != mmin):
+            fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
+                               ngrid=ngrid)
             self._approx_computed = True
             total = 1 + len(fits[0].c_arr)
             self._nperpterms = total
             self._nmax_bk = nmax
             self._kprmax_bk = kprmax
             self._mmin_bk = mmin
+            #self._use_4_components = self.use_4_components
 
         return int(self._nperpterms)
 
@@ -103,6 +106,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                 for i in range(self.count_x_terms())]
 
     def get_jy_names(self):
+        if self.use_4_components == "xx only":
+            return []
         base = self.get_root_phys().extra_vars_basey
         return [base + self.name() + str(i+1)
                 for i in range(self.count_y_terms())]
@@ -111,6 +116,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         return self._count_perp_terms()
 
     def count_y_terms(self):
+        if self.use_4_components == "xx only":
+            return 0
         return self._count_perp_terms()
 
     def count_z_terms(self):
@@ -133,11 +140,14 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
         mmin = self.ra_mmin
+        ngrid = self.ra_ngrid
+
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import (jperp_terms,
                                                                    build_perp_coefficients)
 
         # nmax +1 to use recurrent rules for the bessel functions.
-        fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin)
+        fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
+                           ngrid=ngrid)
         self._jitted_coeffs = build_perp_coefficients(ind_vars, ky, kz, omega, B, dens,
                                                       temp, mass, charge, alpha, fits,
                                                       self.An_mode, self.use_4_components,
@@ -150,11 +160,23 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         v['sel_index'] = []
         v['ra_nmax'] = 5
         v['ra_kprmax'] = 15
-        v['ra_mmin'] = 7
+        v['ra_mmin'] = 5
+        v['ra_ngrid'] = 300
         v['An_mode'] = "kpara->0"
         v['use_4_components'] = "xx-xy-yx-yy"
         v['debug_option'] = ''
         return v
+
+    def plot_approx(self, evt):
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import plot_terms
+
+        nmax = self.ra_nmax
+        kprmax = self.ra_kprmax
+        mmin = self.ra_mmin
+        ngrid = self.ra_ngrid
+
+        plot_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
+                   ngrid=ngrid)
 
     def panel1_param(self):
         panels = super(NonlocalJ1D_Jperp, self).panel1_param()
@@ -163,9 +185,12 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                            "values": ["xx only", "xx-xy-yx-yy"]}],
                        ["cyclotron harms.", None, 400, {}],
                        #["-> RA. options", None, None, {"no_tlw_resize": True}],
-                       ["max (kp*rho)", None, 300, {}],
-                       ["#terms min.", None, 400, {}],
-                       ["debug opts.", '', 0, {}], ])
+                       ["RA max kp*rho", None, 300, {}],
+                       ["RA #terms.", None, 400, {}],
+                       ["RA #grid.", None, 400, {}],
+                       #                       ["debug opts.", '', 0, {}], ])
+                       [None, None, 341, {"label": "Check RA.",
+                                          "func": 'plot_approx', "noexpand": True}], ])
         # ["<-"],])
 
         return panels
@@ -174,18 +199,20 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         values = super(NonlocalJ1D_Jperp, self).get_panel1_value()
         values.extend([self.An_mode, self.use_4_components,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
-                       self.debug_option])
+                       self.ra_ngrid, self])
+
         return values
 
     def import_panel1_value(self, v):
 
         check = super(NonlocalJ1D_Jperp, self).import_panel1_value(v)
-        self.An_mode = str(v[-6])
-        self.use_4_components = str(v[-5])
-        self.ra_nmax = int(v[-4])
-        self.ra_kprmax = float(v[-3])
-        self.ra_mmin = int(v[-2])
-        self.debug_option = str(v[-1])
+        self.An_mode = str(v[-7])
+        self.use_4_components = str(v[-6])
+        self.ra_nmax = int(v[-5])
+        self.ra_kprmax = float(v[-4])
+        self.ra_mmin = int(v[-3])
+        self.ra_ngrid = int(v[-2])
+        #self.debug_option = str(v[-1])
         return True
 
     def has_bf_contribution(self, kfes):
@@ -312,7 +339,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
-        elif c == Exname and not jx:
+        elif c == Exname and not jx and self.use_4_components != "xx only":
             # Ex -> Jy
             ccoeff = -slot["xy"]
             self.add_integrator(engine, 'cterm', ccoeff,
@@ -320,7 +347,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             ccoeff = slot["cross_grad"]
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        elif c == Eyname and jx:
+        elif c == Eyname and jx and self.use_4_components != "xx only":
             # Ey -> Jx
             ccoeff = slot["xy"]
             self.add_integrator(engine, 'cterm', ccoeff,
@@ -328,7 +355,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
             ccoeff = slot["cross_grad"]
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        elif c == Eyname and not jx:
+        elif c == Eyname and not jx and self.use_4_components != "xx only":
             # Ey -> Jy
             ccoeff = slot["diag"]
             self.add_integrator(engine, 'cterm', ccoeff,
@@ -340,6 +367,8 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         elif r == Exname or r == Eyname:
             if self.debug_option == 'skip_iwJ':
                 dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+            if self.use_4_components == "xx only" and r == Eyname:
                 return
             if not real:  # -j omega
                 omega = 2*np.pi*em1d.freq
