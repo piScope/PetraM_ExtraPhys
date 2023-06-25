@@ -180,7 +180,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
 
     def panel1_param(self):
         panels = super(NonlocalJ1D_Jperp, self).panel1_param()
-        panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz"]}],
+        panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
                        ["Components", None, 1, {
                            "values": ["xx only", "xx-xy-yx-yy"]}],
                        ["cyclotron harms.", None, 400, {}],
