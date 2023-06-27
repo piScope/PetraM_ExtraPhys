@@ -381,3 +381,129 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                 alpha = self._jitted_coeffs[1]
                 self.add_integrator(engine, 'jcontribution', alpha,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            
+    '''
+    def add_bf_contribution(self, engine, a, real=True, kfes=0):
+
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
+
+        root = self.get_root_phys()
+        dep_var = root.kfes2depvar(kfes)
+
+        if dep_var in jxnames:
+            idx = jxnames.index(dep_var)
+        if dep_var in jynames:
+            idx = jynames.index(dep_var)
+
+        coeffs, _coeff5 = self._jitted_coeffs
+
+
+        if idx != 0:
+            message = "Add diffusion and mass integrator contribution"
+            
+            kappa = coeffs["kappa"]            
+            self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
+                                mfem.DiffusionIntegrator)
+            dd = coeffs["dterms"][idx-1]
+            self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
+
+        else:  # constant term contribution
+
+            if real:
+                message = "Add mass integrator contribution"
+                kappa0 = coeffs["kappa0"]                
+                self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+            else:
+                message = "No integrator contribution"
+        if real:
+            dprint1(message, "(real)",  dep_var, idx)
+        else:
+            dprint1(message, "(imag)",  dep_var, idx)
+
+    def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
+                              real=True):
+
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
+
+        idx = -1
+        jx = False
+
+        if r in jxnames:
+            jx = True
+            idx = jxnames.index(r)
+            if idx == 0:
+                slot = self._jitted_coeffs[0]["c0"]
+            else:
+                slot = self._jitted_coeffs[0]["cterms"][idx-1]
+        if r in jynames:
+            jx = False
+            idx = jynames.index(r)
+            if idx == 0:
+                slot = self._jitted_coeffs[0]["c0"]
+            else:
+                slot = self._jitted_coeffs[0]["cterms"][idx-1]
+
+        if real:
+            dprint1("Add mixed contribution(real)"  "r/c", r, c, idx, jx)
+        else:
+            dprint1("Add mixed contribution(imag)"  "r/c", r, c, idx, jx)
+
+        paired_model = self.get_root_phys().paired_model
+        mfem_physroot = self.get_root_phys().parent
+        em1d = mfem_physroot[paired_model]
+        var_s = em1d.dep_vars
+        Exname = var_s[0]
+        Eyname = var_s[1]
+
+        if c == Exname and jx:
+            # Ex -> Jx
+            ccoeff = slot["diag"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif c == Exname and not jx and self.use_4_components != "xx only":
+            # Ex -> Jy
+            ccoeff = -slot["xy"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["cross_grad"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        elif c == Eyname and jx and self.use_4_components != "xx only":
+            # Ey -> Jx
+            ccoeff = slot["xy"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["cross_grad"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        elif c == Eyname and not jx and self.use_4_components != "xx only":
+            # Ey -> Jy
+            ccoeff = slot["diag"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            ccoeff = slot["diffusion"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+
+        elif r == Exname or r == Eyname:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+            if self.use_4_components == "xx only" and r == Eyname:
+                return
+            if not real:  # -j omega
+                omega = 2*np.pi*em1d.freq
+                sc = mfem.ConstantCoefficient(-omega)
+                self.add_integrator(engine, 'jcontribution', sc,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            if real:  # alpha J
+                alpha = self._jitted_coeffs[1]
+                self.add_integrator(engine, 'jcontribution', alpha,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+    '''
