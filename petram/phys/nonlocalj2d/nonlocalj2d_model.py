@@ -12,10 +12,10 @@ from petram.model import Domain, Bdry, Point, Pair
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Model')
+dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ2D_Model')
 
 txt_predefined = ''
-model_basename = 'NonlocalJ1D'
+model_basename = 'NonlocalJ2D'
 
 
 try:
@@ -26,7 +26,7 @@ except:
         sys.modules[__name__].dependency_invalid = True
 
 
-class NonlocalJ1D_BaseDomain(Domain, Phys):
+class NonlocalJ2D_BaseDomain(Domain, Phys):
     def __init__(self, **kwargs):
         Domain.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
@@ -59,7 +59,7 @@ class NonlocalJ1D_BaseDomain(Domain, Phys):
         return []
 
 
-class NonlocalJ1D_DefDomain(NonlocalJ1D_BaseDomain):
+class NonlocalJ2D_DefDomain(NonlocalJ2D_BaseDomain):
     can_delete = False
 
     def get_panel1_value(self):
@@ -69,16 +69,16 @@ class NonlocalJ1D_DefDomain(NonlocalJ1D_BaseDomain):
         pass
 
 
-class NonlocalJ1D_DefBdry(Bdry, Phys):
+class NonlocalJ2D_DefBdry(Bdry, Phys):
     can_delete = False
     is_essential = False
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_DefBdry, self).__init__(**kwargs)
+        super(NonlocalJ2D_DefBdry, self).__init__(**kwargs)
         Phys.__init__(self)
 
     def attribute_set(self, v):
-        super(NonlocalJ1D_DefBdry, self).attribute_set(v)
+        super(NonlocalJ2D_DefBdry, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = ['remaining']
         return v
@@ -87,45 +87,45 @@ class NonlocalJ1D_DefBdry(Bdry, Phys):
         return []
 
 
-class NonlocalJ1D_DefPoint(Point, Phys):
+class NonlocalJ2D_DefPoint(Point, Phys):
     can_delete = False
     is_essential = False
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_DefPoint, self).__init__(**kwargs)
+        super(NonlocalJ2D_DefPoint, self).__init__(**kwargs)
         Phys.__init__(self)
 
     def attribute_set(self, v):
-        super(NonlocalJ1D_DefPoint, self).attribute_set(v)
+        super(NonlocalJ2D_DefPoint, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = ['']
         return v
 
 
-class NonlocalJ1D_DefPair(Pair, Phys):
+class NonlocalJ2D_DefPair(Pair, Phys):
     can_delete = False
     is_essential = False
     is_complex = False
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_DefPair, self).__init__(**kwargs)
+        super(NonlocalJ2D_DefPair, self).__init__(**kwargs)
         Phys.__init__(self)
 
     def attribute_set(self, v):
-        super(NonlocalJ1D_DefPair, self).attribute_set(v)
+        super(NonlocalJ2D_DefPair, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         return v
 
 
-class NonlocalJ1D(PhysModule):
+class NonlocalJ2D(PhysModule):
     dim_fixed = True
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D, self).__init__()
+        super(NonlocalJ2D, self).__init__()
         Phys.__init__(self)
-        self['Domain'] = NonlocalJ1D_DefDomain()
-        self['Boundary'] = NonlocalJ1D_DefBdry()
+        self['Domain'] = NonlocalJ2D_DefDomain()
+        self['Boundary'] = NonlocalJ2D_DefBdry()
 
     @property
     def nxterms(self):
@@ -321,7 +321,7 @@ class NonlocalJ1D(PhysModule):
         return self.is_complex_valued
 
     def attribute_set(self, v):
-        v = super(NonlocalJ1D, self).attribute_set(v)
+        v = super(NonlocalJ2D, self).attribute_set(v)
         v["element"] = "H1_FECollection * "+str(self.nterms)
         v["dim"] = 1
         v["ind_vars"] = 'x'
@@ -341,7 +341,7 @@ class NonlocalJ1D(PhysModule):
     def panel1_param(self):
         from petram.utils import pm_panel_param
 
-        panels = super(NonlocalJ1D, self).panel1_param()
+        panels = super(NonlocalJ2D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
         b[0] = "dep. vars. base"
         c = pm_panel_param(self, "EM3D1 model")
@@ -362,7 +362,7 @@ class NonlocalJ1D(PhysModule):
         names = '\n'.join(textwrap.wrap(', '.join(self.dep_vars), width=50))
         name2 = '\n'.join(textwrap.wrap(', '.join(self.der_vars), width=50))
 
-        val = super(NonlocalJ1D, self).get_panel1_value()
+        val = super(NonlocalJ2D, self).get_panel1_value()
 
         from petram.utils import pm_get_gui_value
         gui_value, self.paired_model = pm_get_gui_value(
@@ -378,7 +378,7 @@ class NonlocalJ1D(PhysModule):
     def import_panel1_value(self, v):
         import ifigure.widgets.dialog as dialog
 
-        v = super(NonlocalJ1D, self).import_panel1_value(v)
+        v = super(NonlocalJ2D, self).import_panel1_value(v)
 
         self.ind_vars = str(v[0])
         self.is_complex_valued = True
@@ -392,20 +392,18 @@ class NonlocalJ1D(PhysModule):
         return True
 
     def get_possible_domain(self):
-        from petram.phys.nonlocalj1d.jxx import NonlocalJ1D_Jxx
-        from petram.phys.nonlocalj1d.jperp import NonlocalJ1D_Jperp
-        from petram.phys.nonlocalj1d.jperp2 import NonlocalJ1D_Jperp2
-        from petram.phys.nonlocalj1d.jhot import NonlocalJ1D_Jhot
-        doms = [NonlocalJ1D_Jhot, NonlocalJ1D_Jxx,
-                NonlocalJ1D_Jperp, NonlocalJ1D_Jperp2]
-        doms.extend(super(NonlocalJ1D, self).get_possible_domain())
+        from petram.phys.nonlocalj1d.jhot import NonlocalJ2D_Jhot        
+        from petram.phys.nonlocalj1d.jxx import NonlocalJ2D_Jxx
+        #from petram.phys.nonlocalj1d.jperp import NonlocalJ2D_Jperp
+        doms = [NonlocalJ2D_Jhot, NonlocalJ2D_Jxx,]
+        doms.extend(super(NonlocalJ2D, self).get_possible_domain())
 
         return doms
 
     def get_possible_bdry(self):
-        from petram.phys.nonlocalj1d.coldedge import NonlocalJ1D_ColdEdge
-        bdrs = [NonlocalJ1D_ColdEdge]
-        bdrs.extend(super(NonlocalJ1D, self).get_possible_bdry())
+        from petram.phys.nonlocalj1d.coldedge import NonlocalJ2D_ColdEdge
+        bdrs = [NonlocalJ2D_ColdEdge]
+        bdrs.extend(super(NonlocalJ2D, self).get_possible_bdry())
         return bdrs
 
     def get_possible_point(self):

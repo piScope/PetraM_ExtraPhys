@@ -14,7 +14,7 @@ from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jperp')
+dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jperp2')
 
 if use_parallel:
     import mfem.par as mfem
@@ -59,14 +59,27 @@ data = (('B', VtableElement('bext', type='array',
                              tip="wave number` in the z direction")),)
 
 
-class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
+class NonlocalJ1D_Jperp2(NonlocalJ1D_BaseDomain):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_Jperp, self).__init__(**kwargs)
+        super(NonlocalJ1D_Jperp2, self).__init__(**kwargs)
+
+    @property
+    def is_kyzero(self):
+        ky = self.get_ky()
+        return ky == 0.0
+
+    def get_ky(self):
+        if hasattr(self, '_global_ns'):
+            B, dens, temp, mass, charge, alpha, ky, kz = self.vt.make_value_or_expression(
+                self)
+        else:
+            ky = 0
+        return ky
 
     def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -101,27 +114,58 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         return int(self._nperpterms)
 
     def get_jx_names(self):
-        base = self.get_root_phys().extra_vars_basex
-        return [base + self.name() + str(i+1)
-                for i in range(self.count_x_terms())]
+        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        ky = self.get_ky()
+
+        if self.use_4_components == "xx only":
+            if ky == 0:
+                return xdiag
+            else:
+                return xdiag + xgrad
+
+        else:
+            if ky == 0:
+                return xdiag + xcross
+            else:
+                return xdiag + xcross + xgrad
 
     def get_jy_names(self):
+        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        ky = self.get_ky()
+
         if self.use_4_components == "xx only":
             return []
-        base = self.get_root_phys().extra_vars_basey
-        return [base + self.name() + str(i+1)
-                for i in range(self.count_y_terms())]
+        else:
+            return ydiag + ycross + ygrad
 
     def count_x_terms(self):
-        return self._count_perp_terms()
+        return len(self.get_jx_names())
 
     def count_y_terms(self):
-        if self.use_4_components == "xx only":
-            return 0
-        return self._count_perp_terms()
+        return len(self.get_jy_names())
 
     def count_z_terms(self):
         return 0
+
+    def current_names(self):
+        # all possible names without considering run-condition
+        basex = self.get_root_phys().extra_vars_basex
+        basey = self.get_root_phys().extra_vars_basey
+
+        xdiag = [basex + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        ydiag = [basey + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        xcross = [basex + self.name() + "c" + str(i+1)
+                  for i in range(self._count_perp_terms())]
+        ycross = [basey + self.name() + "c" + str(i+1)
+                  for i in range(self._count_perp_terms())]
+        xgrad = [basex + self.name() + "g" + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        ygrad = [basey + self.name() + "g" + str(i+1)
+                 for i in range(self._count_perp_terms())]
+
+        return xdiag, xcross, xgrad, ydiag, ycross, ygrad
 
     @property
     def jited_coeff(self):
@@ -142,16 +186,16 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import (jperp_terms,
-                                                                   build_perp_coefficients)
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp2 import build_perp2_coefficients
 
         # nmax +1 to use recurrent rules for the bessel functions.
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
                            ngrid=ngrid)
-        self._jitted_coeffs = build_perp_coefficients(ind_vars, ky, kz, omega, B, dens,
-                                                      temp, mass, charge, alpha, fits,
-                                                      self.An_mode, self.use_4_components,
-                                                      self._global_ns, self._local_ns,)
+        self._jitted_coeffs = build_perp2_coefficients(ind_vars, ky, kz, omega, B, dens,
+                                                       temp, mass, charge, alpha, fits,
+                                                       self.An_mode, self.use_4_components,
+                                                       self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -179,7 +223,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                    ngrid=ngrid)
 
     def panel1_param(self):
-        panels = super(NonlocalJ1D_Jperp, self).panel1_param()
+        panels = super(NonlocalJ1D_Jperp2, self).panel1_param()
         panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
                        ["Components", None, 1, {
                            "values": ["xx only", "xx-xy-yx-yy"]}],
@@ -196,7 +240,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         return panels
 
     def get_panel1_value(self):
-        values = super(NonlocalJ1D_Jperp, self).get_panel1_value()
+        values = super(NonlocalJ1D_Jperp2, self).get_panel1_value()
         values.extend([self.An_mode, self.use_4_components,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self])
@@ -205,7 +249,7 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
 
     def import_panel1_value(self, v):
 
-        check = super(NonlocalJ1D_Jperp, self).import_panel1_value(v)
+        check = super(NonlocalJ1D_Jperp2, self).import_panel1_value(v)
         self.An_mode = str(v[-7])
         self.use_4_components = str(v[-6])
         self.ra_nmax = int(v[-5])
@@ -228,14 +272,10 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
-        '''
-        Jnl = Jn1 + Jx2 + Jx3 ..
-        nabla^2 Jx1 - d1 = c1 * E
-        nabla^2 Jx1 - d2 = c2 * E
-        nabla^2 Jx3 - d1 = c3 * E
-        '''
-        Jnlxterms = self.get_jx_names()
-        Jnlyterms = self.get_jy_names()
+        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -244,19 +284,43 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         Eyname = var_s[1]
 
         loc = []
-        for n in Jnlxterms:   # Ex -> Jx
-            loc.append((n, Exname, 1, 1))
-        for n in Jnlxterms:   # Ey -> Jx
-            loc.append((n, Eyname, 1, 1))
-        for n in Jnlxterms:   # Jx -> Ex
-            loc.append((Exname, n, 1, 1))
+        for n in xdiag:   # Ex -> Jx
+            if n in jxnames:
+                loc.append((n, Exname, 1, 1))
+        for n in xcross:   # Ey -> Jx
+            if n in jxnames:
+                loc.append((n, Eyname, 1, 1))
+        for n in xdiag + xcross:   # Jx -> Ex
+            if n in jxnames:
+                loc.append((Exname, n, 1, 1))
 
-        for n in Jnlyterms:    # Ex -> Jy
-            loc.append((n, Exname, 1, 1))
-        for n in Jnlyterms:    # Ey -> Jy
-            loc.append((n, Eyname, 1, 1))
-        for n in Jnlyterms:    # Jy -> Ey
-            loc.append((Eyname, n, 1, 1))
+        for n in ycross:    # Ex -> Jy
+            if n in jynames:
+                loc.append((n, Exname, 1, 1))
+        for n in ydiag:    # Ey -> Jy
+            if n in jynames:
+                loc.append((n, Eyname, 1, 1))
+        for n in ydiag + ycross:    # Jy -> Ey
+            if n in jynames:
+                loc.append((Eyname, n, 1, 1))
+
+        if self.is_kyzero:
+            for n in xgrad:   # Ey -> Jx (gradient)
+                if n in jxnames:
+                    loc.append((n, Eyname, 1, 1))
+            for n in ygrad:   # Ex -> Jy (gradient)
+                if n in jynames:
+                    loc.append((n, Exname, 1, 1))
+            for n in ygrad:   # Ey -> Jy  (gradient)
+                if n in jynames:
+                    loc.append((n, Eyname, 1, 1))
+            for n in xgrad:   # Jx -> Ex
+                if n in jxnames:
+                    loc.append((Exname, n, 1, 1))
+            for n in ygrad:   # Jy -> Ey
+                if n in jynames:
+                    loc.append((Eyname, n, 1, 1))
+
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
@@ -267,33 +331,42 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
-        if dep_var in jxnames:
-            idx = jxnames.index(dep_var)
-        if dep_var in jynames:
-            idx = jynames.index(dep_var)
+        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+
+        for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad):
+            if dep_var in items:
+                idx = items.index(dep_var)
+        if idx == 0:
+            slot = self._jitted_coeffs[0]["c0"]
+        else:
+            slot = self._jitted_coeffs[0]["cterms"][idx-1]
 
         coeffs, _coeff5 = self._jitted_coeffs
 
+        if dep_var in xgrad + ygrad:
+            ccoeff = slot["grad"]
+        elif dep_var in xcross + ycross:
+            ccoeff = slot["xy"]
+        else:
+            ccoeff = slot["diag"]
 
         if idx != 0:
             message = "Add diffusion and mass integrator contribution"
-            
-            kappa = coeffs["kappa"]            
-            self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
-                                mfem.DiffusionIntegrator)
+            kappa = coeffs["kappa"]
             dd = coeffs["dterms"][idx-1]
-            self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
+
+            self.add_integrator(engine, 'diffusion', -kappa/ccoeff, a.AddDomainIntegrator,
+                                mfem.DiffusionIntegrator)
+
+            self.add_integrator(engine, 'mass', -dd/ccoeff, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
 
         else:  # constant term contribution
+            message = "Add mass integrator contribution"
+            kappa0 = coeffs["kappa0"]
+            self.add_integrator(engine, 'mass', -kappa0/ccoeff, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
 
-            if real:
-                message = "Add mass integrator contribution"
-                kappa0 = coeffs["kappa0"]                
-                self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
-                                    mfem.MassIntegrator)
-            else:
-                message = "No integrator contribution"
         if real:
             dprint1(message, "(real)",  dep_var, idx)
         else:
@@ -302,31 +375,12 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
 
-        jxnames = self.get_jx_names()
-        jynames = self.get_jy_names()
-
-        idx = -1
-        jx = False
-
-        if r in jxnames:
-            jx = True
-            idx = jxnames.index(r)
-            if idx == 0:
-                slot = self._jitted_coeffs[0]["c0"]
-            else:
-                slot = self._jitted_coeffs[0]["cterms"][idx-1]
-        if r in jynames:
-            jx = False
-            idx = jynames.index(r)
-            if idx == 0:
-                slot = self._jitted_coeffs[0]["c0"]
-            else:
-                slot = self._jitted_coeffs[0]["cterms"][idx-1]
+        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
 
         if real:
-            dprint1("Add mixed contribution(real)"  "r/c", r, c, idx, jx)
+            dprint1("Add mixed contribution(real)"  "r/c", r, c)
         else:
-            dprint1("Add mixed contribution(imag)"  "r/c", r, c, idx, jx)
+            dprint1("Add mixed contribution(imag)"  "r/c", r, c)
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -335,36 +389,51 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
         Exname = var_s[0]
         Eyname = var_s[1]
 
-        if c == Exname and jx:
-            # Ex -> Jx
-            ccoeff = slot["diag"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+        one = mfem.ConstantCoefficient(1.0)
 
-        elif c == Exname and not jx and self.use_4_components != "xx only":
-            # Ex -> Jy
-            ccoeff = -slot["xy"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            ccoeff = slot["cross_grad"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        elif c == Eyname and jx and self.use_4_components != "xx only":
-            # Ey -> Jx
-            ccoeff = slot["xy"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            ccoeff = slot["cross_grad"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        elif c == Eyname and not jx and self.use_4_components != "xx only":
-            # Ey -> Jy
-            ccoeff = slot["diag"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            ccoeff = slot["diffusion"]
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+        ky = self.get_ky()
+        negky = mfem.ConstantCoefficient(-ky)
+        kysq = mfem.ConstantCoefficient(ky*ky)
+
+        if c == Exname and r in xdiag:
+            if real:
+                self.add_integrator(engine, 'one', one,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif c == Exname and r in ycross:
+            if real:
+                self.add_integrator(engine, 'one', one,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif c == Eyname and r in ydiag:
+            if real:
+                self.add_integrator(engine, 'one', one,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif c == Eyname and r in xcross:
+            if real:
+                self.add_integrator(engine, 'one', one,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif c == Exname and r in xgrad:
+            if real:
+                self.add_integrator(engine, 'kysq', kysq,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif c == Eyname and r in xgrad:
+            if not real:
+                self.add_integrator(engine, 'negky', negky,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+
+        elif c == Exname and r in ygrad:
+            if not real:
+                self.add_integrator(engine, 'negky', negky,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+
+        elif c == Eyname and r in ygrad:
+            if real:
+                self.add_integrator(engine, 'one', one,
+                                    mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
 
         elif r == Exname or r == Eyname:
             if self.debug_option == 'skip_iwJ':
@@ -382,4 +451,5 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                 self.add_integrator(engine, 'jcontribution', alpha,
                                     mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
-            
+        else:
+            assert False, 'Should not come here:' + str(r) + " / " + str(c)
