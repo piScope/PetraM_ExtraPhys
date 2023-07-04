@@ -355,16 +355,18 @@ class NonlocalJ1D_Jperp2(NonlocalJ1D_BaseDomain):
             kappa = coeffs["kappa"]
             dd = coeffs["dterms"][idx-1]
 
-            self.add_integrator(engine, 'diffusion', -kappa/ccoeff, a.AddDomainIntegrator,
+            self.add_integrator(engine, 'diffusion', -kappa*ccoeff,
+                                a.AddDomainIntegrator,
                                 mfem.DiffusionIntegrator)
 
-            self.add_integrator(engine, 'mass', -dd/ccoeff, a.AddDomainIntegrator,
+            self.add_integrator(engine, 'mass', -dd*ccoeff,
+                                a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
 
         else:  # constant term contribution
             message = "Add mass integrator contribution"
             kappa0 = coeffs["kappa0"]
-            self.add_integrator(engine, 'mass', -kappa0/ccoeff, a.AddDomainIntegrator,
+            self.add_integrator(engine, 'mass', -kappa0*ccoeff, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
 
         if real:
