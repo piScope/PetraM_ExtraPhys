@@ -345,8 +345,10 @@ class NonlocalJ1D_Jperp2(NonlocalJ1D_BaseDomain):
 
         if dep_var in xgrad + ygrad:
             ccoeff = slot["grad"]
-        elif dep_var in xcross + ycross:
+        elif dep_var in xcross:
             ccoeff = slot["xy"]
+        elif dep_var in ycross:
+            ccoeff = -slot["xy"]
         else:
             ccoeff = slot["diag"]
 
