@@ -372,11 +372,12 @@ class NonlocalJ1D_Jperp(NonlocalJ1D_BaseDomain):
                 return
             if self.use_4_components == "xx only" and r == Eyname:
                 return
-            if not real:  # -j omega
-                omega = 2*np.pi*em1d.freq
-                sc = mfem.ConstantCoefficient(-omega)
-                self.add_integrator(engine, 'jcontribution', sc,
-                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            #if not real:  # -j omega
+                #omega = 2*np.pi*em1d.freq
+                #sc = mfem.ConstantCoefficient(-omega)
+            sc = self._jitted_coeffs[0]["jw_wpx"]
+            self.add_integrator(engine, 'jcontribution', sc,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
             if real:  # alpha J
                 alpha = self._jitted_coeffs[1]
                 self.add_integrator(engine, 'jcontribution', alpha,
