@@ -3,7 +3,7 @@
 compute non-local current correction.
 
 '''
-from petram.phys.nonlocalj1d.nonlocalj1d_model import NonlocalJ1D_BaseDomain
+from petram.phys.nonlocalj1d.nonlocalj1d_model import NonlocalJ2D_BaseDomain
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
@@ -14,7 +14,7 @@ from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ1D_Jxx')
+dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ2D_Jxx')
 
 if use_parallel:
     import mfem.par as mfem
@@ -49,14 +49,14 @@ data = (('B', VtableElement('bext', type='array',
                                           tip="additional damping due to non-local current(sigma*Jhot)")),)
 
 
-class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
+class NonlocalJ2D_Jxx(NonlocalJ2D_BaseDomain):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(NonlocalJ1D_Jxx, self).__init__(**kwargs)
+        super(NonlocalJ2D_Jxx, self).__init__(**kwargs)
 
     def count_x_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -148,7 +148,7 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         plot_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin, ngrid=ngrid)
 
     def panel1_param(self):
-        panels = super(NonlocalJ1D_Jxx, self).panel1_param()
+        panels = super(NonlocalJ2D_Jxx, self).panel1_param()
         panels.extend([["cyclotron harms.", None, 400, {}],
                        #["-> RA. options", None, None, {"no_tlw_resize": True}],
                        ["RA max kp*rho", None, 300, {}],
@@ -162,14 +162,14 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
         return panels
 
     def get_panel1_value(self):
-        values = super(NonlocalJ1D_Jxx, self).get_panel1_value()
+        values = super(NonlocalJ2D_Jxx, self).get_panel1_value()
         values.extend([self.ra_nmax, self.ra_kprmax, self.ra_mmin, self.ra_ngrid,
                        self])
         return values
 
     def import_panel1_value(self, v):
 
-        check = super(NonlocalJ1D_Jxx, self).import_panel1_value(v)
+        check = super(NonlocalJ2D_Jxx, self).import_panel1_value(v)
         self.ra_nmax = int(v[-5])
         self.ra_kprmax = float(v[-4])
         self.ra_mmin = int(v[-3])
