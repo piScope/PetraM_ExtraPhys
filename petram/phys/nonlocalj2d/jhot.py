@@ -3,7 +3,7 @@
 compute non-local current correction.
 
 '''
-from petram.phys.nonlocalj1d.nonlocalj1d_model import NonlocalJ2D_BaseDomain
+from petram.phys.nonlocalj2d.nonlocalj2d_model import NonlocalJ2D_BaseDomain
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
@@ -31,11 +31,11 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
     def __init__(self, **kwargs):
         super(NonlocalJ2D_Jhot, self).__init__(**kwargs)
 
-    def has_jx(self):
-        return int(self.j_direction == 'x')
+    def has_jxy(self):
+        return int(self.j_direction == 'xy')
 
-    def has_jy(self):
-        return int(self.j_direction == 'y')
+    def has_jp(self):
+        return 0
 
     def has_jz(self):
         return int(self.j_direction == 'z')
@@ -45,14 +45,14 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         Phys.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
-        v["j_direction"] = 'x'
+        v["j_direction"] = 'xy'
         return v
 
     def panel1_param(self):
         from wx import CB_READONLY
         panels = super(NonlocalJ2D_Jhot, self).panel1_param()
-        panels.append(["direction", "x", 4,
-                       {"style": CB_READONLY, "choices": ["x", "y", "z"]}])
+        panels.append(["direction", "xy", 4,
+                       {"style": CB_READONLY, "choices": ["xy", "z"]}])
         return panels
 
     def get_panel1_value(self):
@@ -68,9 +68,7 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         check = root.check_kfes(kfes)
         dir = self.j_direction
 
-        if check == 0 and dir == 'x':
-            return True
-        if check == 1 and dir == 'y':
+        if check == 0 and dir == 'xy':
             return True
         if check == 2 and dir == 'z':
             return True
@@ -88,15 +86,12 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         var_s = mfem_physroot[paired_model].dep_vars
 
         dir = self.j_direction
-        if dir == 'x':
-            base = root.extra_vars_basex
+        if dir == 'xy':
+            base = root.extra_vars_basexy
             Ename = var_s[0]
-        elif dir == 'y':
-            base = root.extra_vars_basey
-            Ename = var_s[1]
         elif dir == 'z':
             base = root.extra_vars_basez
-            Ename = var_s[2]
+            Ename = var_s[1]
 
         Jnlterms = [x for x in self.get_root_phys().dep_vars
                     if x.startswith(base) and base != x]
@@ -131,12 +126,9 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         var_s = em1d.dep_vars
 
         dir = self.j_direction
-        if dir == 'x':
+        if dir == 'xy':
             base = root.extra_vars_basex
             Ename = var_s[0]
-        elif dir == 'y':
-            base = root.extra_vars_basey
-            Ename = var_s[1]
         elif dir == 'z':
             base = root.extra_vars_basez
             Ename = var_s[2]
@@ -144,5 +136,9 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         if r == base and c.startswith(base):
             if real:
                 sc = mfem.ConstantCoefficient(1)
-                self.add_integrator(engine, 'identity', sc,
-                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+                if dir == 'xy':
+                    self.add_integrator(engine, 'identity', sc,
+                                        mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
+                else:
+                    self.add_integrator(engine, 'identity', sc,
+                                        mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)

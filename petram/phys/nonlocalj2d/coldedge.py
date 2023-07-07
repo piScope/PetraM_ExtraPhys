@@ -58,17 +58,21 @@ class NonlocalJ2D_ColdEdge(Bdry, Phys):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
         dep_var = root.kfes2depvar(kfes)
+
         if check in (0, 3):
-            c0 = jx0
-            txt = " (x component)"
-        elif check in (1, 4):
-            c0 = jy0
-            txt = " (y component)"
+            c0 = (jx0, jy0)
+            txt = " (xy component)"
+            is_xy = True
+        elif check in (4,):
+            txt = " (p component)"
+            return
         elif check in (2, 5):
             c0 = jz0
             txt = " (z component)"
+            is_xy = False
         else:
             assert False, 'Unknown check return value'
+
         if real:
             dprint1("Apply Ess.(real)" + str(self._sel_index),
                     'kfes', kfes, dep_var, c0, txt)
@@ -76,25 +80,37 @@ class NonlocalJ2D_ColdEdge(Bdry, Phys):
             dprint1("Apply Ess.(imag)" + str(self._sel_index),
                     'kfes', kfes, dep_var, c0, txt)
 
-        name = self.get_root_phys().dep_vars[0]
-        fes = engine.get_fes(self.get_root_phys(), name=name)
-
-        fec_name = fes.FEColl().Name()
-
-        mesh = engine.get_emesh(mm=self)
+        mesh = engine.get_mesh(mm=self)
         ibdr = mesh.bdr_attributes.ToList()
-
         bdr_attr = [0]*mesh.bdr_attributes.Max()
         for idx in self._sel_index:
             bdr_attr[idx-1] = 1
 
-        ess_vdofs = mfem.intArray()
-        fes.GetEssentialVDofs(mfem.intArray(bdr_attr), ess_vdofs, 0)
-        vdofs = np.where(np.array(ess_vdofs.ToList()) == -1)[0]
-        dofs = mfem.intArray([fes.VDofToDof(i) for i in vdofs])
-        fes.BuildDofToArrays()
+        ind_vars = self.get_root_phys().ind_vars
+        l = self._local_ns
+        g = self._global_ns
 
-        coeff1 = SCoeff([c0], self.get_root_phys().ind_vars,
+        coeff1 = VCoeff(3, (jx0, jy0, jz0), ind_vars,
+                        l, g, return_complex=True)
+
+        if is_xy:
+            '''
+            coeff1 = Exy(2, Exyz,
+                        self.get_root_phys().ind_vars,
                         self._local_ns, self._global_ns,
-                        real=real)
-        gf.ProjectCoefficient(coeff1, dofs, 0)
+                        real = real)
+            '''
+            coeff1 = coeff1[[0, 1]]
+            coeff1 = coeff1.get_realimag_coefficient(real)
+            gf.ProjectBdrCoefficientTangent(coeff1,
+                                            mfem.intArray(bdr_attr))
+        else:
+            '''
+            coeff1 = Ez(Exyz, self.get_root_phys().ind_vars,
+                        self._local_ns, self._global_ns,
+                        real = real)
+            '''
+            coeff1 = coeff1[2]
+            coeff1 = coeff1.get_realimag_coefficient(real)
+            gf.ProjectBdrCoefficient(coeff1,
+                                     mfem.intArray(bdr_attr))

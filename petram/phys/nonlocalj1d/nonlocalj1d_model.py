@@ -19,7 +19,7 @@ model_basename = 'NonlocalJ1D'
 
 
 try:
-    import petram.phys.nonlocalj1d.nonlocalj1d_subs
+    import petram.phys.nonlocalj1d.nonlocalj1d_subs_xy
 except:
     import petram.mfem_model as mm
     if mm.has_addon_access not in ["any", "nonlocalj"]:
@@ -344,7 +344,7 @@ class NonlocalJ1D(PhysModule):
         panels = super(NonlocalJ1D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
         b[0] = "dep. vars. base"
-        c = pm_panel_param(self, "EM3D1 model")
+        c = pm_panel_param(self, "EM1D1 model")
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
@@ -405,7 +405,8 @@ class NonlocalJ1D(PhysModule):
 
     def get_possible_bdry(self):
         from petram.phys.nonlocalj1d.coldedge import NonlocalJ1D_ColdEdge
-        bdrs = [NonlocalJ1D_ColdEdge]
+        from petram.phys.nonlocalj1d.continuity import NonlocalJ1D_Continuity
+        bdrs = [NonlocalJ1D_ColdEdge, NonlocalJ1D_Continuity]
         bdrs.extend(super(NonlocalJ1D, self).get_possible_bdry())
         return bdrs
 
