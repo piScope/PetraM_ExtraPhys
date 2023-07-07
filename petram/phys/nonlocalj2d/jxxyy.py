@@ -46,7 +46,12 @@ data = (('B', VtableElement('bext', type='array',
         ('frac_collisions', VtableElement('frac_collisions', type='float',
                                           guilabel='alpha',
                                           default="0.0",
-                                          tip="additional damping due to non-local current(sigma*Jhot)")),)
+                                          tip="additional damping due to non-local current(sigma*Jhot)")),
+        ('kz', VtableElement('kz', type='float',
+                             guilabel='kz',
+                             default=0.,
+                             no_func=True,
+                             tip="wave number` in the z direction")),)
 
 
 class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
@@ -67,8 +72,9 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
             self._kprmax_bk = 0
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, fcols = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, alpha, kz = self.vt.make_value_or_expression(
             self)
+
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
         mmin = self.ra_mmin
@@ -88,15 +94,29 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         return int(self._nxterms)
 
     def get_jx_names(self):
-        base = self.get_root_phys().extra_vars_basex
-        return [base + self.name() + str(i+1)
-                for i in range(self.count_x_terms())]
+        xdiag, ydiag = self.current_names()
+        return xdiag
 
-    def count_y_terms(self):
-        return 0
+    def get_jy_names(self):
+        xdiag, ydiag = self.current_names()
+        return ydiag
+
+    def count_xy_terms(self):
+        return len(self.get_jx_names())
 
     def count_z_terms(self):
         return 0
+
+    def current_names(self):
+        # all possible names without considering run-condition
+        basex = self.get_root_phys().extra_vars_basex
+        basey = self.get_root_phys().extra_vars_basey
+
+        xdiag = [basex + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        ydiag = [basey + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        return xdiag, ydiag
 
     @property
     def jited_coeff(self):
@@ -110,20 +130,21 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, fcols = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, alpha, kz = self.vt.make_value_or_expression(
             self)
+
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import (jxx_terms,
-                                                                 build_xx_coefficients)
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import jxx_terms
+        from petram.phys.nonlocalj1d.nonlocalj2d_subs_xxyy import build_xxyy_coefficients
 
         fits = jxx_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin,
                          mmax=mmin, ngrid=ngrid)
-        self._jitted_coeffs = build_xx_coefficients(ind_vars, omega, B, dens, temp, mass, charge,
-                                                    fcols, fits, self._global_ns, self._local_ns,)
+        self._jitted_coeffs = build_xxyy_coefficients(ind_vars, omega, B, dens, temp, mass, charge,
+                                                      fcols, fits, self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -187,53 +208,65 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
-        '''
-        Jnl = Jn1 + Jx2 + Jx3 ..
-        nabla^2 Jx1 - d1 = c1 * E
-        nabla^2 Jx1 - d2 = c2 * E
-        nabla^2 Jx3 - d1 = c3 * E
-        '''
-        Jnlxname = self.get_root_phys().extra_vars_basex
-        Jnlterms = self.get_jx_names()
+        xdiag, ydiag = self.current_names()
+
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         var_s = mfem_physroot[paired_model].dep_vars
-        Ename = var_s[0]
+        Exyname = var_s[0]
 
         loc = []
-        for n in Jnlterms:
-            loc.append((n, Ename, 1, 1))
-        for n in Jnlterms:
-            loc.append((Ename, n, 1, 1))
+        for n in xdiag:   # Ex -> Jx
+            if n in jxnames:
+                loc.append((n, Exyname, 1, 1))
+                loc.append((Exyname, n, 1, 1))
+
+        for n in ydiag:    # Ey -> Jy
+            if n in jynames:
+                loc.append((n, Exyname, 1, 1))
+                loc.append((Exyname, n, 1, 1))
+
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
-        jxnames = self.get_jx_names()
-
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
-        idx = jxnames.index(dep_var)
 
-        if real:
-            dprint1(
-                "Add diffusion and mass integrator contribution(real)", dep_var, idx)
-        else:
-            dprint1(
-                "Add diffusion and mass integrator contribution(imag)", dep_var, idx)
+        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
 
-        f_coeffs = self._jitted_coeffs[0]
-        kappa, cc, dd = f_coeffs[idx]
+        for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad):
+            if dep_var in items:
+                idx = items.index(dep_var)
 
-        if dd is not None:
-            self.add_integrator(engine, 'diffusion', kappa, a.AddDomainIntegrator,
+        coeffs, _coeff5 = self._jitted_coeffs
+
+        if idx != 0:
+            message = "Add diffusion and mass integrator contribution"
+
+            kappa = coeffs["kappa"]
+            self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
                                 mfem.DiffusionIntegrator)
-            self.add_integrator(engine, 'mass', dd, a.AddDomainIntegrator,
+            dd = coeffs["dterms"][idx-1]
+            self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
+
         else:  # constant term contribution
-            self.add_integrator(engine, 'mass', kappa, a.AddDomainIntegrator,
-                                mfem.MassIntegrator)
+
+            if real:
+                message = "Add mass integrator contribution"
+                kappa0 = coeffs["kappa0"]
+                self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+            else:
+                message = "No integrator contribution"
+        if real:
+            dprint1(message, "(real)",  dep_var, idx)
+        else:
+            dprint1(message, "(imag)",  dep_var, idx)
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):

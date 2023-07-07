@@ -166,30 +166,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                  for i in range(self._count_perp_terms())]
 
         return xdiag, xcross, xgrad, ydiag, ycross, ygrad
-    '''
-    def get_jx_names(self):
-        base = self.get_root_phys().extra_vars_basex
-        return [base + self.name() + str(i+1)
-                for i in range(self.count_x_terms())]
 
-    def get_jy_names(self):
-        if self.use_4_components == "xx only":
-            return []
-        base = self.get_root_phys().extra_vars_basey
-        return [base + self.name() + str(i+1)
-                for i in range(self.count_y_terms())]
-
-    def count_x_terms(self):
-        return self._count_perp_terms()
-
-    def count_y_terms(self):
-        if self.use_4_components == "xx only":
-            return 0
-        return self._count_perp_terms()
-
-    def count_z_terms(self):
-        return 0
-    '''
     @property
     def jited_coeff(self):
         return self._jited_coeff
@@ -345,33 +322,6 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                     loc.append((Eyname, n, 1, 1))
 
         return loc
-    '''    
-    def get_mixedbf_loc(self):
-        Jnlxterms = self.get_jx_names()
-        Jnlyterms = self.get_jy_names()
-
-        paired_model = self.get_root_phys().paired_model
-        mfem_physroot = self.get_root_phys().parent
-        var_s = mfem_physroot[paired_model].dep_vars
-        Exname = var_s[0]
-        Eyname = var_s[1]
-
-        loc = []
-        for n in Jnlxterms:   # Ex -> Jx
-            loc.append((n, Exname, 1, 1))
-        for n in Jnlxterms:   # Ey -> Jx
-            loc.append((n, Eyname, 1, 1))
-        for n in Jnlxterms:   # Jx -> Ex
-            loc.append((Exname, n, 1, 1))
-
-        for n in Jnlyterms:    # Ex -> Jy
-            loc.append((n, Exname, 1, 1))
-        for n in Jnlyterms:    # Ey -> Jy
-            loc.append((n, Eyname, 1, 1))
-        for n in Jnlyterms:    # Jy -> Ey
-            loc.append((Eyname, n, 1, 1))
-        return loc
-    '''
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
@@ -434,25 +384,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
             slot = self._jitted_coeffs[0]["c0"]
         else:
             slot = self._jitted_coeffs[0]["cterms"][idx-1]
-        '''
-        if r in jxnames:
-            jx = True
-            idx = jxnames.index(r)
-        if c in jxnames:
-            jx = True
-            idx = jxnames.index(c)
-        if r in jynames:
-            jx = False
-            idx = jynames.index(r)
-        if c in jynames:
-            jx = False
-            idx = jynames.index(c)
 
-        if idx == 0:
-            slot = self._jitted_coeffs[0]["c0"]
-        else:
-            slot = self._jitted_coeffs[0]["cterms"][idx-1]
-        '''
         if real:
             dprint1("Add mixed contribution(real)"  "r/c", r, c, idx, jx)
         else:
