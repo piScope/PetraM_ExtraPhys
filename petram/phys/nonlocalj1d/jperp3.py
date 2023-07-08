@@ -425,9 +425,12 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
         elif c == Eyname and r in ygrad:
-            ccoeff = slot["diffusion"]*facp
+            #ccoeff = slot["diffusion"]*facp
+            #self.add_integrator(engine, 'cterm', ccoeff,
+            #                    mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+            ccoeff = slot["diffusion"]*facm
             self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+                                mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
 
         if r == Exname and c in xdiag:
             if self.debug_option == 'skip_iwJ':
@@ -462,10 +465,10 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
         elif r == Eyname and c in ygrad:
             ccoeff = slot["diffusion"]*facm
+            #self.add_integrator(engine, 'cterm', ccoeff,
+            #                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
             self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-            # self.add_integrator(engine, 'cterm', ccoeff,
-            #                    mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
 
         if r == Exname or r == Eyname:
             if real:  # alpha J
