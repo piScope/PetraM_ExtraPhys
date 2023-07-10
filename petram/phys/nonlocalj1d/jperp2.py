@@ -228,10 +228,11 @@ class NonlocalJ1D_Jperp2(NonlocalJ1D_BaseDomain):
                        ["Components", None, 1, {
                            "values": ["xx only", "xx-xy-yx-yy"]}],
                        ["cyclotron harms.", None, 400, {}],
-                       #["-> RA. options", None, None, {"no_tlw_resize": True}],
+                       ["-> RA. options", None, None, {"no_tlw_resize": True}],
                        ["RA max kp*rho", None, 300, {}],
                        ["RA #terms.", None, 400, {}],
                        ["RA #grid.", None, 400, {}],
+                       ["<-"],
                        #                       ["debug opts.", '', 0, {}], ])
                        [None, None, 341, {"label": "Check RA.",
                                           "func": 'plot_approx', "noexpand": True}], ])

@@ -150,10 +150,11 @@ class NonlocalJ1D_Jxx(NonlocalJ1D_BaseDomain):
     def panel1_param(self):
         panels = super(NonlocalJ1D_Jxx, self).panel1_param()
         panels.extend([["cyclotron harms.", None, 400, {}],
-                       #["-> RA. options", None, None, {"no_tlw_resize": True}],
+                       ["-> RA. options", None, None, {"no_tlw_resize": True}],
                        ["RA max kp*rho", None, 300, {}],
                        ["RA #terms.", None, 400, {}],
                        ["RA #grid.", None, 400, {}],
+                       ["<-"],
                        # ["debug opts.", '', 0, {}], ])
                        [None, None, 341, {"label": "RA.",
                                           "func": 'plot_approx', "noexpand": True}], ])

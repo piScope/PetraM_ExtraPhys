@@ -228,10 +228,11 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                        ["Components", None, 1, {
                            "values": ["xx only", "xx-xy-yx-yy"]}],
                        ["cyclotron harms.", None, 400, {}],
-                       #["-> RA. options", None, None, {"no_tlw_resize": True}],
+                       ["-> RA. options", None, None, {"no_tlw_resize": True}],
                        ["RA max kp*rho", None, 300, {}],
                        ["RA #terms.", None, 400, {}],
                        ["RA #grid.", None, 400, {}],
+                       ["<-"],
                        #                       ["debug opts.", '', 0, {}], ])
                        [None, None, 341, {"label": "Check RA.",
                                           "func": 'plot_approx', "noexpand": True}], ])
@@ -426,7 +427,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
         elif c == Eyname and r in ygrad:
             #ccoeff = slot["diffusion"]*facp
-            #self.add_integrator(engine, 'cterm', ccoeff,
+            # self.add_integrator(engine, 'cterm', ccoeff,
             #                    mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
             ccoeff = slot["diffusion"]*facm
             self.add_integrator(engine, 'cterm', ccoeff,
@@ -465,7 +466,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
         elif r == Eyname and c in ygrad:
             ccoeff = slot["diffusion"]*facm
-            #self.add_integrator(engine, 'cterm', ccoeff,
+            # self.add_integrator(engine, 'cterm', ccoeff,
             #                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
