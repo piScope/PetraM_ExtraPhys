@@ -168,14 +168,15 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         return v
 
     def plot_approx(self, evt):
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_xx import plot_terms
+        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import plot_terms
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        plot_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin, ngrid=ngrid)
+        plot_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
+                   ngrid=ngrid)
 
     def panel1_param(self):
         panels = super(NonlocalJ2D_Jxxyy, self).panel1_param()
