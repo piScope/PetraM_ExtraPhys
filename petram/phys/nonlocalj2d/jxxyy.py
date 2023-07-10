@@ -336,10 +336,11 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                     "Add mixed vector laplacian contribution(real)"  "r/c", r, c, is_trans)
 
                 one = mfem.ConstantCoefficient(1.0)
+                vecone = mfem.VectorConstantCoefficient([1, 1])
                 mone = mfem.ConstantCoefficient(-1.0)
                 if c in jxynames and r in jpnames:
                     # div
-                    self.add_integrator(engine, 'div', one,
+                    self.add_integrator(engine, 'div', vecone,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
 
                 elif r in jxynames and c in jpnames:
