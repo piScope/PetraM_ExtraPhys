@@ -349,4 +349,4 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
             else:
                 dprint1(
-                    "Skipping mixed vector laplacian contribution(imag)"  "r/c", r, c, is_trans)
+                    "No vector laplacian mixed-contribution(imag)"  "r/c", r, c, is_trans)

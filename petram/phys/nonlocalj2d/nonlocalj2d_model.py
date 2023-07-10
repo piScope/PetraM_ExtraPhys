@@ -435,6 +435,7 @@ class NonlocalJ2D(PhysModule):
         from petram.helper.variables import add_coordinates
         from petram.helper.variables import add_scalar
         from petram.helper.variables import add_components
+        from petram.helper.variables import add_elements
         from petram.helper.variables import add_expression
         from petram.helper.variables import add_surf_normals
         from petram.helper.variables import add_constant
@@ -452,6 +453,36 @@ class NonlocalJ2D(PhysModule):
         dep_vars = self.dep_vars
         sdim = self.geom_dim
 
-        add_scalar(v, name, "", ind_vars, solr, soli)
+        xynames = []
+        if self.has_jxy:
+            basename = self.extra_vars_basexy
+            xynames.append(basename)
+
+        for x in self["Domain"].walk_enabled():
+            if x.count_xy_terms() > 0:
+                xynames.extend(x.get_jxy_names())
+
+        if name in xynames:
+            add_elements(v, name, suffix, ind_vars,
+                         solr, soli, elements=[0, 1])
+
+        pnames = []
+        for x in self["Domain"].walk_enabled():
+            if x.count_p_terms() > 0:
+                pnames.extend(x.get_jp_names())
+
+        if name in pnames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
+
+        znames = []
+        if self.has_jz:
+            basename = self.extra_vars_basez
+            znames.append(basename)
+        for x in self["Domain"].walk_enabled():
+            if x.count_z_terms() > 0:
+                znames.extend(x.get_jz_names())
+
+        if name in znames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
 
         return v

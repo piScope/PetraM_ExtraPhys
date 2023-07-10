@@ -465,6 +465,10 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
         elif r == Eyname and c in ygrad:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+
             ccoeff = slot["diffusion"]*facm
             # self.add_integrator(engine, 'cterm', ccoeff,
             #                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
