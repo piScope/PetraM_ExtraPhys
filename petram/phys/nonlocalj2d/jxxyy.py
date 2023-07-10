@@ -273,11 +273,13 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                 kappa0 = coeffs["kappa0"]
                 self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
-        else:
+        elif dep_var in jpnames:
             if real:  # -1
                 mone = mfem.ConstantCoefficient(-1.0)
                 self.add_integrator(engine, '-1', mone, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
+        else:
+            assert False, "should not come here"
 
         if real:
             dprint1(message, "(real)",  dep_var, idx)
@@ -342,7 +344,7 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
                 elif r in jxynames and c in jpnames:
                     # grad
-                    self.add_integrator(engine, 'grad', mone,
+                    self.add_integrator(engine, 'grad', one,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
 
             else:
