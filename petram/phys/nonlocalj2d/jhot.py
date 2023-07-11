@@ -108,7 +108,7 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
             return
 
         sc = mfem.ConstantCoefficient(-1) 
-        dir = self.j_direction:
+        dir = self.j_direction
 
         if dir == 'xy':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
