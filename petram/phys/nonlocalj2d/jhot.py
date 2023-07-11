@@ -107,9 +107,16 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         else:
             return
 
-        sc = mfem.ConstantCoefficient(-1)
-        self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
-                            mfem.MassIntegrator)
+        sc = mfem.ConstantCoefficient(-1) 
+        dir = self.j_direction:
+
+        if dir == 'xy':
+            self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
+                                mfem.VectorFEMassIntegrator)
+
+        else:
+            self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
