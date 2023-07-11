@@ -116,7 +116,7 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         if real:
             dprint1("Add mixed contribution(real)"  "r/c", r, c)
         else:
-            dprint1("Add mixed contribution(imag)"  "r/c", r, c)
+            return
 
         root = self.get_root_phys()
 
@@ -127,18 +127,17 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
 
         dir = self.j_direction
         if dir == 'xy':
-            base = root.extra_vars_basex
+            base = root.extra_vars_basexy
             Ename = var_s[0]
         elif dir == 'z':
             base = root.extra_vars_basez
-            Ename = var_s[2]
+            Ename = var_s[1]
 
         if r == base and c.startswith(base):
-            if real:
-                sc = mfem.ConstantCoefficient(1)
-                if dir == 'xy':
-                    self.add_integrator(engine, 'identity', sc,
-                                        mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
-                else:
-                    self.add_integrator(engine, 'identity', sc,
-                                        mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+            sc = mfem.ConstantCoefficient(1)
+            if dir == 'xy':
+                self.add_integrator(engine, 'identity', sc,
+                                    mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
+            else:
+                self.add_integrator(engine, 'identity', sc,
+                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
