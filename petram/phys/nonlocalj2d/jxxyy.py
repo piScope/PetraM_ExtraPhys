@@ -150,9 +150,11 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
                            mmin=mmin, mmax=mmin, ngrid=ngrid)
 
-        self._jitted_coeffs = build_xxyy_coefficients(ind_vars, kz, omega, B, dens, temp, mass, charge,
+        self._jitted_coeffs = build_xxyy_coefficients(ind_vars, kz, omega, B, dens, temp,
+                                                      mass, charge,
                                                       alpha, fits,
-                                                      self.An_mode, self._global_ns, self._local_ns,)
+                                                      self.An_mode,
+                                                      self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)

@@ -97,7 +97,5 @@ class RFsheath3D_Asymptotic(Domain, Phys):
         else:
             dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
-        from petram.phys.rfsheath3d.asymptotic_subs import add_mix_contribution2
-
         add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
                               real=real)
