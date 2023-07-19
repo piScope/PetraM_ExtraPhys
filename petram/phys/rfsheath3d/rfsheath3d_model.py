@@ -23,8 +23,10 @@ except ImportError:
     if mm.has_addon_access not in ["any", "rfsheath"]:
         sys.modules[__name__].dependency_invalid = True
 
+
 class RFsheath3D_DefDomain(Domain, Phys):
     can_delete = False
+    is_complex = True
 
     def __init__(self, **kwargs):
         super(RFsheath3D_DefDomain, self).__init__(**kwargs)
@@ -35,9 +37,11 @@ class RFsheath3D_DefDomain(Domain, Phys):
     def import_panel1_value(self, v):
         pass
 
+
 class RFsheath3D_DefBdry(Bdry, Phys):
     can_delete = False
     is_essential = False
+    is_complex = True
 
     def __init__(self, **kwargs):
         super(RFsheath3D_DefBdry, self).__init__(**kwargs)
@@ -56,6 +60,7 @@ class RFsheath3D_DefBdry(Bdry, Phys):
 class RFsheath3D_DefPoint(Point, Phys):
     can_delete = False
     is_essential = False
+    is_complex = True
 
     def __init__(self, **kwargs):
         super(RFsheath3D_DefPoint, self).__init__(**kwargs)
@@ -71,7 +76,7 @@ class RFsheath3D_DefPoint(Point, Phys):
 class RFsheath3D_DefPair(Pair, Phys):
     can_delete = False
     is_essential = False
-    is_complex = False
+    is_complex = True
 
     def __init__(self, **kwargs):
         super(RFsheath3D_DefPair, self).__init__(**kwargs)
@@ -204,7 +209,7 @@ class RFsheath3D(PhysModule):
 
         v = super(RFsheath3D, self).import_panel1_value(v)
         self.ind_vars = str(v[0])
-        self.is_complex_valued = False
+        self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
         self.element = 'H1_FECollection, L2_FECollection'
         self.dep_vars_base_txt = ', '.join(
