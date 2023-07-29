@@ -23,11 +23,14 @@ except ImportError:
     if mm.has_addon_access not in ["any", "rfsheath"]:
         sys.modules[__name__].dependency_invalid = True
 
-
-class RFsheath3D_DefDomain(Domain, Phys):
-    can_delete = False
+class RFsheath3D_BaseDomain(Domain, Phys):
     is_complex = True
+    @property
+    def is_nonlinear(self):
+        return False
 
+class RFsheath3D_DefDomain(RFsheath3D_BaseDomain):
+    can_delete = False
     def __init__(self, **kwargs):
         super(RFsheath3D_DefDomain, self).__init__(**kwargs)
 
@@ -126,6 +129,12 @@ class RFsheath3D(PhysModule):
     def vdim(self, val):
         pass
 
+    @property
+    def is_nonlinear(self):
+        if "Domain" not in self:
+            return 0
+        return np.any([x.is_nonlinear for x in self["Domain"].walk_enabled()]
+
     def fes_order(self, idx):
         self.vt_order.preprocess_params(self)
         if idx == 0:
@@ -171,17 +180,17 @@ class RFsheath3D(PhysModule):
         v["dep_vars_suffix"] = ''
         v["dep_vars_base_txt"] = 'Vsh, Fmg'
         v["is_complex_valued"] = True
-        v["paired_var"] = None
+        v["paired_model"] = None
 
         return v
 
     def panel1_param(self):
-        from petram.utils import pv_panel_param
-
+        from petram.utils import pm_panel_param
+        
         panels = super(RFsheath3D, self).panel1_param()
 
         a, b = self.get_var_suffix_var_name_panel()
-        c = pv_panel_param(self, "EM3D1 model")
+        c = pm_panel_param(self, "EM1D model")        
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
@@ -196,8 +205,9 @@ class RFsheath3D(PhysModule):
         names2 = ', '.join(self.der_vars)
         val = super(RFsheath3D, self).get_panel1_value()
 
-        from petram.utils import pv_get_gui_value
-        gui_value, self.paired_var = pv_get_gui_value(self, self.paired_var)
+        from petram.utils import pm_get_gui_value
+        gui_value, self.paired_model = pm_get_gui_value(
+            self, self.paired_model)
 
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
@@ -215,14 +225,15 @@ class RFsheath3D(PhysModule):
         self.dep_vars_base_txt = ', '.join(
             [x.strip() for x in str(v[2]).split(',')])
 
-        from petram.utils import pv_from_gui_value
-        self.paired_var = pv_from_gui_value(self, v[4])
+        from petram.utils import pm_from_gui_value
+        self.paired_model = pm_from_gui_value(self, v[4])
 
         return True
 
     def get_possible_domain(self):
         from petram.phys.rfsheath3d.asymptotic import RFsheath3D_Asymptotic
-        doms = [RFsheath3D_Asymptotic]
+        from petram.phys.rfsheath3d.z_pec import RFsheath3D_Z_Pec
+        doms = [RFsheath3D_Asymptotic, RFsheath3D_Z_Pec, ]
         doms.extend(super(RFsheath3D, self).get_possible_domain())
         return doms
 

@@ -344,7 +344,7 @@ class NonlocalJ1D(PhysModule):
         panels = super(NonlocalJ1D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
         b[0] = "dep. vars. base"
-        c = pm_panel_param(self, "EM1D1 model")
+        c = pm_panel_param(self, "EM1D model")
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
