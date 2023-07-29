@@ -23,14 +23,22 @@ except ImportError:
     if mm.has_addon_access not in ["any", "rfsheath"]:
         sys.modules[__name__].dependency_invalid = True
 
+
 class RFsheath3D_BaseDomain(Domain, Phys):
     is_complex = True
+
+    def __init__(self, **kwargs):
+        Domain.__init__(self, **kwargs)
+        Phys.__init__(self, **kwargs)
+
     @property
     def is_nonlinear(self):
         return False
 
+
 class RFsheath3D_DefDomain(RFsheath3D_BaseDomain):
     can_delete = False
+
     def __init__(self, **kwargs):
         super(RFsheath3D_DefDomain, self).__init__(**kwargs)
 
@@ -123,7 +131,10 @@ class RFsheath3D(PhysModule):
 
     @property
     def vdim(self):
-        return [1, 1]
+        if self.is_nonlinear:
+            return [1, 1, 1, 1]
+        else:
+            return [1, 1]
 
     @vdim.setter
     def vdim(self, val):
@@ -133,13 +144,18 @@ class RFsheath3D(PhysModule):
     def is_nonlinear(self):
         if "Domain" not in self:
             return 0
-        return np.any([x.is_nonlinear for x in self["Domain"].walk_enabled()]
+        return np.any([x.is_nonlinear for x in self["Domain"].walk_enabled()])
 
     def fes_order(self, idx):
         self.vt_order.preprocess_params(self)
         if idx == 0:
             return self.order
-        return self.order-1
+        elif idx == 1:
+            return self.order-1
+        elif idx == 2:
+            return self.order
+        else:
+            return self.order
 
     def get_fec_type(self, idx):
         '''
@@ -148,13 +164,22 @@ class RFsheath3D(PhysModule):
         ND
         RT
         '''
-        values = ['H1', 'L2']
+        if self.is_nonlinear:
+            values = ['H1', 'L2', 'H1', 'H1']
+        else:
+            values = ['H1', 'L2']
         return values[idx]
 
     def get_fec(self):
         v = self.dep_vars
-        return [(v[0], 'H1_FECollection'),
-                (v[1], 'L2_FECollection'), ]
+        if self.is_nonlinear:
+            return [(v[0], 'H1_FECollection'),
+                    (v[1], 'L2_FECollection'),
+                    (v[2], 'H1_FECollection'),
+                    (v[3], 'H1_FECollection'), ]
+        else:
+            return [(v[0], 'H1_FECollection'),
+                    (v[1], 'L2_FECollection'), ]
 
     def postprocess_after_add(self, engine):
         try:
@@ -178,7 +203,10 @@ class RFsheath3D(PhysModule):
         v["ndim"] = 2
         v["ind_vars"] = 'x, y, z'
         v["dep_vars_suffix"] = ''
-        v["dep_vars_base_txt"] = 'Vsh, Fmg'
+        if self.is_nonlinear:
+            v["dep_vars_base_txt"] = 'Vsh, Fmg, Fmd, Dn'
+        else:
+            v["dep_vars_base_txt"] = 'Vsh, Fmg'
         v["is_complex_valued"] = True
         v["paired_model"] = None
 
@@ -186,11 +214,11 @@ class RFsheath3D(PhysModule):
 
     def panel1_param(self):
         from petram.utils import pm_panel_param
-        
+
         panels = super(RFsheath3D, self).panel1_param()
 
         a, b = self.get_var_suffix_var_name_panel()
-        c = pm_panel_param(self, "EM1D model")        
+        c = pm_panel_param(self, "EM1D model")
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
@@ -221,7 +249,12 @@ class RFsheath3D(PhysModule):
         self.ind_vars = str(v[0])
         self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
-        self.element = 'H1_FECollection, L2_FECollection'
+
+        if self.is_nonlinear:
+            # Vsh Fmg, Dn, Fmd
+            self.element = 'H1_FECollection, L2_FECollection, H1_FECollection, H1_FECollection'
+        else:
+            self.element = 'H1_FECollection, L2_FECollection'
         self.dep_vars_base_txt = ', '.join(
             [x.strip() for x in str(v[2]).split(',')])
 
@@ -232,8 +265,8 @@ class RFsheath3D(PhysModule):
 
     def get_possible_domain(self):
         from petram.phys.rfsheath3d.asymptotic import RFsheath3D_Asymptotic
-        from petram.phys.rfsheath3d.z_pec import RFsheath3D_Z_Pec
-        doms = [RFsheath3D_Asymptotic, RFsheath3D_Z_Pec, ]
+        from petram.phys.rfsheath3d.z_pec import RFsheath3D_ZPec
+        doms = [RFsheath3D_Asymptotic, RFsheath3D_ZPec, ]
         doms.extend(super(RFsheath3D, self).get_possible_domain())
         return doms
 

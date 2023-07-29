@@ -5,7 +5,6 @@ from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
 import numpy as np
 
-from petram.model import Domain, Bdry, Edge, Point, Pair
 from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
@@ -36,6 +35,7 @@ except ImportError:
     if mm.has_addon_access not in ["any", "rfsheath"]:
         sys.modules[__name__].dependency_invalid = True
 
+
 class RFsheath3D_Asymptotic(RFsheath3D_BaseDomain):
     has_essential = False
     nlterms = []
@@ -47,8 +47,7 @@ class RFsheath3D_Asymptotic(RFsheath3D_BaseDomain):
         super(RFsheath3D_Asymptotic, self).__init__(**kwargs)
 
     def attribute_set(self, v):
-        Domain.attribute_set(self, v)
-        Phys.attribute_set(self, v)
+        RFsheath3D_BaseDomain.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         return v
@@ -66,7 +65,6 @@ class RFsheath3D_Asymptotic(RFsheath3D_BaseDomain):
         return get_mixedbf_loc(self)
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-
 
         if kfes != 0:
             return
