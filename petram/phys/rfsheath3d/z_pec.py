@@ -25,11 +25,6 @@ data = (('label1', VtableElement(None,
         ('B', VtableElement('bext', type='array',
                           guilabel='magnetic field',
                             default="=[0,0,0]",
-                            tip="external magnetic field")),
-        ('dens', VtableElement('dens_e', type='float',
-                               guilabel='density(m-3)',
-                               default="1e19",
-                               tip="electron density")),
         ('temperature', VtableElement('temperature', type='float',
                                       guilabel='temp.(eV)',
                                       default="10.",
@@ -48,41 +43,41 @@ try:
                                                         zpec_add_bf_contribution,
                                                         zpec_add_mix_contribution2)
 
-    get_mixedbf_loc = zpec_get_mixedbf_loc
-    add_bf_contribution = zpec_add_bf_contribution
-    add_mix_contribution2 = zpec_add_mix_contribution2
+    get_mixedbf_loc=zpec_get_mixedbf_loc
+    add_bf_contribution=zpec_add_bf_contribution
+    add_mix_contribution2=zpec_add_mix_contribution2
 except ImportError:
     import petram.mfem_model as mm
     if mm.has_addon_access not in ["any", "rfsheath"]:
-        sys.modules[__name__].dependency_invalid = True
+        sys.modules[__name__].dependency_invalid=True
 
 
 class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
-    has_essential = False
-    nlterms = []
-    can_timedpendent = True
-    has_3rd_panel = True
-    vt = Vtable(data)
+    has_essential=False
+    nlterms=[]
+    can_timedpendent=True
+    has_3rd_panel=True
+    vt=Vtable(data)
 
     def __init__(self, **kwargs):
         super(RFsheath3D_ZPec, self).__init__(**kwargs)
 
-    @classmethod
+    @ classmethod
     def fancy_menu_name(cls):
         return "Impedance"
 
-    @classmethod
+    @ classmethod
     def fancy_tree_name(cls):
         return "Impedance"
 
-    @property
+    @ property
     def is_nonlinear(self):
         return True
 
     def attribute_set(self, v):
         RFsheath3D_BaseDomain.attribute_set(self, v)
-        v['sel_readonly'] = False
-        v['sel_index'] = []
+        v['sel_readonly']=False
+        v['sel_index']=[]
         return v
 
     def has_bf_contribution(self, kfes):
@@ -116,5 +111,11 @@ class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
         else:
             dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
+
+        label, B, temp, zsh, alpha=self.vt.make_value_or_expression(self)
+        g_ns=self._global_ns
+        l_ns=self._local_ns
+
+
         add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
-                              real=real)
+                              real=real, params=(B, temp, zsh, alpha, l_ns, g_ns))
