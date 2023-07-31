@@ -18,16 +18,27 @@ if use_parallel:
 else:
     import mfem.ser as mfem
 
-data = (
-    ('label1', VtableElement(None,
+data = (('label1', VtableElement(None,
                              guilabel='Sheath Impedance BC',
                              default="",
                              tip="Dn = n x grad Fmd (potential for div-free B)")),
-    ('zsh_model', VtableElement('zsh_model', type='string',
+        ('B', VtableElement('bext', type='array',
+                          guilabel='magnetic field',
+                            default="=[0,0,0]",
+                            tip="external magnetic field")),
+        ('dens', VtableElement('dens_e', type='float',
+                               guilabel='density(m-3)',
+                               default="1e19",
+                               tip="electron density")),
+        ('temperature', VtableElement('temperature', type='float',
+                                      guilabel='temp.(eV)',
+                                      default="10.",
+                                      tip="temperature ")),
+        ('zsh_model', VtableElement('zsh_model', type='string',
                                 guilabel='Z(Vsh) model',
                                 default="myra17",
                                 tip="sheath impedance model")),
-    ('smoothing', VtableElement('smoothing', type='float',
+        ('smoothing', VtableElement('smoothing', type='float',
                                 guilabel='Smoothing (a_s)',
                                 default="0.0",
                                 tip="smoothing factor Eq.24 in SS NF2023.")),)
