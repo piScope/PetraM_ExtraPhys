@@ -117,13 +117,12 @@ class RFsheath3D(PhysModule):
 
     @property
     def dep_vars_base(self):
-        val = self.dep_vars_base_txt.split(',')
-        return val
+        ret = [x.strip() for x in self.dep_vars_base_txt.split(',')]
+        return ret
 
     @property
     def dep_vars0(self):
-        val = self.dep_vars_base_txt.split(',')
-        return [x + self.dep_vars_suffix for x in val]
+        return self.dep_vars
 
     @property
     def der_vars(self):
@@ -143,7 +142,7 @@ class RFsheath3D(PhysModule):
     @property
     def is_nonlinear(self):
         if "Domain" not in self:
-            return 0
+            return False
         return np.any([x.is_nonlinear for x in self["Domain"].walk_enabled()])
 
     def fes_order(self, idx):
@@ -203,10 +202,7 @@ class RFsheath3D(PhysModule):
         v["ndim"] = 2
         v["ind_vars"] = 'x, y, z'
         v["dep_vars_suffix"] = ''
-        if self.is_nonlinear:
-            v["dep_vars_base_txt"] = 'Vsh, Fmg, Fmd, Dn'
-        else:
-            v["dep_vars_base_txt"] = 'Vsh, Fmg'
+        v["dep_vars_base_txt"] = 'Vsh, Fmg'
         v["is_complex_valued"] = True
         v["paired_model"] = None
 
@@ -222,13 +218,22 @@ class RFsheath3D(PhysModule):
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
-            a, b,
+            a,
+            ["dep. vars.", ','.join(self.dep_vars), 2, {}],
             ["derived vars.", ','.join(self.der_vars), 2, {}],
             c])
 
         return panels
 
     def get_panel1_value(self):
+        if self.is_nonlinear:
+            # Vsh Fmg, Dn, Fmd
+            self.element = 'H1_FECollection, L2_FECollection, H1_FECollection, H1_FECollection'
+            self.dep_vars_base_txt = 'Vsh, Fmg, Dn, Fmd'
+        else:
+            self.element = 'H1_FECollection, L2_FECollection'
+            self.dep_vars_base_txt = 'Vsh, Fmg'
+
         names = self.dep_vars_base_txt
         names2 = ', '.join(self.der_vars)
         val = super(RFsheath3D, self).get_panel1_value()
@@ -243,20 +248,18 @@ class RFsheath3D(PhysModule):
         return val
 
     def import_panel1_value(self, v):
-        import ifigure.widgets.dialog as dialog
+        if self.is_nonlinear:
+            # Vsh Fmg, Dn, Fmd
+            self.element = 'H1_FECollection, L2_FECollection, H1_FECollection, H1_FECollection'
+            self.dep_vars_base_txt = 'Vsh, Fmg, Dn, Fmd'
+        else:
+            self.element = 'H1_FECollection, L2_FECollection'
+            self.dep_vars_base_txt = 'Vsh, Fmg'
 
         v = super(RFsheath3D, self).import_panel1_value(v)
         self.ind_vars = str(v[0])
         self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
-
-        if self.is_nonlinear:
-            # Vsh Fmg, Dn, Fmd
-            self.element = 'H1_FECollection, L2_FECollection, H1_FECollection, H1_FECollection'
-        else:
-            self.element = 'H1_FECollection, L2_FECollection'
-        self.dep_vars_base_txt = ', '.join(
-            [x.strip() for x in str(v[2]).split(',')])
 
         from petram.utils import pm_from_gui_value
         self.paired_model = pm_from_gui_value(self, v[4])
@@ -312,9 +315,14 @@ class RFsheath3D(PhysModule):
             add_scalar(v, name, "", ind_vars, solr, soli)
 
         elif name == dep_vars[1]:
-            for k, suffix in enumerate(ind_vars):
-                nn = name + suffix
-                v[nn] = GFScalarVariable(solr, soli, comp=k+1)
+            add_scalar(v, name, "", ind_vars, solr, soli)
+
+        elif name == dep_vars[2]:
+            add_scalar(v, name, "", ind_vars, solr, soli)
+
+        elif name == dep_vars[3]:
+            add_scalar(v, name, "", ind_vars, solr, soli)
+
         else:
             pass
         return v

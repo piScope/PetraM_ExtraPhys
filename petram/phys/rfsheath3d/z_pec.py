@@ -19,45 +19,46 @@ else:
     import mfem.ser as mfem
 
 data = (('label1', VtableElement(None,
-                             guilabel='Sheath Impedance BC',
-                             default="",
-                             tip="Dn = n x grad Fmd (potential for div-free B)")),
+                                 guilabel='Sheath Impedance BC',
+                                 default="",
+                                 tip="Dn = n x grad Fmd (potential for div-free B)")),
         ('B', VtableElement('bext', type='array',
-                          guilabel='magnetic field',
+                            guilabel='magnetic field',
                             default="=[0,0,0]",
+                            tip="static magnetic field")),
         ('temperature', VtableElement('temperature', type='float',
                                       guilabel='temp.(eV)',
                                       default="10.",
                                       tip="temperature ")),
         ('zsh_model', VtableElement('zsh_model', type='string',
-                                guilabel='Z(Vsh) model',
-                                default="myra17",
-                                tip="sheath impedance model")),
+                                    guilabel='Z(Vsh) model',
+                                    default="myra17",
+                                    tip="sheath impedance model")),
         ('smoothing', VtableElement('smoothing', type='float',
-                                guilabel='Smoothing (a_s)',
-                                default="0.0",
-                                tip="smoothing factor Eq.24 in SS NF2023.")),)
+                                    guilabel='Smoothing (a_s)',
+                                    default="0.0",
+                                    tip="smoothing factor Eq.24 in SS NF2023.")),)
 
 try:
     from petram.phys.rfsheath3d.rfsheath3d_subs import (zpec_get_mixedbf_loc,
                                                         zpec_add_bf_contribution,
                                                         zpec_add_mix_contribution2)
 
-    get_mixedbf_loc=zpec_get_mixedbf_loc
-    add_bf_contribution=zpec_add_bf_contribution
-    add_mix_contribution2=zpec_add_mix_contribution2
+    get_mixedbf_loc = zpec_get_mixedbf_loc
+    add_bf_contribution = zpec_add_bf_contribution
+    add_mix_contribution2 = zpec_add_mix_contribution2
 except ImportError:
     import petram.mfem_model as mm
     if mm.has_addon_access not in ["any", "rfsheath"]:
-        sys.modules[__name__].dependency_invalid=True
+        sys.modules[__name__].dependency_invalid = True
 
 
 class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
-    has_essential=False
-    nlterms=[]
-    can_timedpendent=True
-    has_3rd_panel=True
-    vt=Vtable(data)
+    has_essential = False
+    nlterms = []
+    can_timedpendent = True
+    has_3rd_panel = True
+    vt = Vtable(data)
 
     def __init__(self, **kwargs):
         super(RFsheath3D_ZPec, self).__init__(**kwargs)
@@ -76,13 +77,13 @@ class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
 
     def attribute_set(self, v):
         RFsheath3D_BaseDomain.attribute_set(self, v)
-        v['sel_readonly']=False
-        v['sel_index']=[]
+        v['sel_readonly'] = False
+        v['sel_index'] = []
         return v
 
     def has_bf_contribution(self, kfes):
-        if kfes == 0:
-            return True
+        if kfes == 1:
+            return False
         else:
             return False
 
@@ -98,9 +99,9 @@ class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
             return
 
         if real:
-            dprint1("Add diffusion integrator contribution(real)")
+            dprint1("Add diagonal integrator contribution(real)")
         else:
-            dprint1("Add diffusion integrator contribution(imag)")
+            dprint1("Add diagonal integrator contribution(imag)")
 
         add_bf_contribution(self, mfem, engine, a, real=real, kfes=kfes)
 
@@ -111,11 +112,9 @@ class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
         else:
             dprint1("Add mixed contribution(imag)"  "r/c", r, c, is_trans)
 
-
-        label, B, temp, zsh, alpha=self.vt.make_value_or_expression(self)
-        g_ns=self._global_ns
-        l_ns=self._local_ns
-
+        label, B, temp, zsh, alpha = self.vt.make_value_or_expression(self)
+        g_ns = self._global_ns
+        l_ns = self._local_ns
 
         add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
                               real=real, params=(B, temp, zsh, alpha, l_ns, g_ns))
