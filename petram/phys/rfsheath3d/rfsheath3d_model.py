@@ -108,6 +108,7 @@ class RFsheath3D(PhysModule):
         Phys.__init__(self)
         self['Domain'] = RFsheath3D_DefDomain()
         self['Boundary'] = RFsheath3D_DefBdry()
+        self['Point'] = RFsheath3D_DefPoint()
 
     @property
     def dep_vars(self):
@@ -234,7 +235,7 @@ class RFsheath3D(PhysModule):
             self.element = 'H1_FECollection, L2_FECollection'
             self.dep_vars_base_txt = 'Vsh, Fmg'
 
-        names = self.dep_vars_base_txt
+        names = ', '.join(self.dep_vars)
         names2 = ', '.join(self.der_vars)
         val = super(RFsheath3D, self).get_panel1_value()
 
@@ -282,10 +283,8 @@ class RFsheath3D(PhysModule):
         return bdrs
 
     def get_possible_point(self):
-        '''
-        To Do. Support point source
-        '''
-        return []
+        from petram.phys.wf.wf_essential import WF_EssentialPoint
+        return [WF_EssentialPoint]
 
     def get_possible_pair(self):
         return []

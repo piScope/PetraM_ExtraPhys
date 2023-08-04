@@ -85,7 +85,7 @@ class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
         if kfes == 1:
             return False
         else:
-            return False
+            return True
 
     def has_mixed_contribution(self):
         return True
@@ -94,10 +94,6 @@ class RFsheath3D_ZPec(RFsheath3D_BaseDomain):
         return get_mixedbf_loc(self)
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
-
-        if kfes != 0:
-            return
-
         if real:
             dprint1("Add diagonal integrator contribution(real)")
         else:
