@@ -314,7 +314,7 @@ class NonlocalJ2D(PhysModule):
     def fes_order(self, idx):
         self.vt_order.preprocess_params(self)
 
-        flag = check_kfes(self, idx)
+        flag = self.check_kfes(idx)
         if flag == 0:  # jxyname:
             return self.order
 
