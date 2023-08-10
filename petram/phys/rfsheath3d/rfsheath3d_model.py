@@ -289,6 +289,21 @@ class RFsheath3D(PhysModule):
     def get_possible_pair(self):
         return []
 
+    def _generate_model_script(self, script=None,
+                               skip_def_check=False,
+                               dir=None):
+        if self.is_nonlinear:
+            # Vsh Fmg, Dn, Fmd
+            self.element = 'H1_FECollection, L2_FECollection, H1_FECollection, H1_FECollection'
+            self.dep_vars_base_txt = 'Vsh, Fmg, Dn, Fmd'
+        else:
+            self.element = 'H1_FECollection, L2_FECollection'
+            self.dep_vars_base_txt = 'Vsh, Fmg'
+
+        return super(RFsheath3D, self)._generate_model_script(script=script,
+                                                              skip_def_check=skip_def_check,
+                                                              dir=dir)
+
     def add_variables(self, v, name, solr, soli=None):
         from petram.helper.variables import add_coordinates
         from petram.helper.variables import add_scalar

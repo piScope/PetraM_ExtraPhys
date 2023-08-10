@@ -36,7 +36,7 @@ data = (('B', VtableElement('bext', type='array',
         ('mass', VtableElement('mass', type="float",
                                guilabel='mass(/Da)',
                                default="1.0",
-                               # no_func=True,
+                               no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
         ('charge_q', VtableElement('charge_q', type='float',
                                    guilabel='charge(/q)',
@@ -357,9 +357,9 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
             else:
                 message = "No integrator contribution"
         if real:
-            dprint1(message, "(real)",  dep_var, idx)
+            dprint1(message, "(real)", dep_var, idx)
         else:
-            dprint1(message, "(imag)",  dep_var, idx)
+            dprint1(message, "(imag)", dep_var, idx)
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):

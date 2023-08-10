@@ -311,6 +311,25 @@ class NonlocalJ2D(PhysModule):
 
         return fecs
 
+    def fes_order(self, idx):
+        self.vt_order.preprocess_params(self)
+
+        flag = check_kfes(self, idx)
+        if flag == 0:  # jxyname:
+            return self.order
+
+        elif flag == 2:  # jzname:
+            return self.order
+
+        elif flag == 3:  # jxyname
+            return self.order
+
+        elif flag == 4:  # jpname
+            return self.order + 1
+
+        elif flag == 5:  # jzname
+            return self.order
+
     def postprocess_after_add(self, engine):
         try:
             sdim = engine.meshes[0].SpaceDimension()
