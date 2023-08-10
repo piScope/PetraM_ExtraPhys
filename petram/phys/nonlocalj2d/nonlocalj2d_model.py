@@ -194,7 +194,7 @@ class NonlocalJ2D(PhysModule):
                 0: jxy
                 2: jz
                 3: jxy contribution
-                4: jxyp contribution (div Jxy)
+                4: jxyp contribution (div Jxy, or curl Jxy)
                 5: jz contribution
         '''
         dep_var = self.kfes2depvar(kfes)
@@ -290,7 +290,7 @@ class NonlocalJ2D(PhysModule):
         RT
         '''
         nnd, nh1v, nh1 = self.nterms
-        values = ['ND'] * nnd + ['H1'] * (nh1v + nh1)
+        values = ['RT'] * nnd + ['H1'] * (nh1v + nh1)
         return values[idx]
 
     def get_fec(self):
@@ -303,7 +303,7 @@ class NonlocalJ2D(PhysModule):
         fecs = []
         for vv in v:
             if vv.startswith(jxyname):
-                fecs.append((vv, 'ND_FECollection'))
+                fecs.append((vv, 'RT_FECollection'))
             if vv.startswith(jpname):
                 fecs.append((vv, 'H1_FECollection'))
             if vv.startswith(jzname):
@@ -325,7 +325,7 @@ class NonlocalJ2D(PhysModule):
             return self.order
 
         elif flag == 4:  # jpname
-            return self.order + 1
+            return self.order
 
         elif flag == 5:  # jzname
             return self.order
@@ -350,7 +350,7 @@ class NonlocalJ2D(PhysModule):
         v = super(NonlocalJ2D, self).attribute_set(v)
 
         nnd, nh1v, nh1 = self.nterms
-        elements = "ND_FECollection * " + \
+        elements = "RT_FECollection * " + \
             str(nnd) + ", H1_FECollection * "+str(nh1v + nh1)
 
         v["element"] = elements
@@ -416,7 +416,7 @@ class NonlocalJ2D(PhysModule):
         self.dep_vars_suffix = str(v[1])
 
         nnd, nh1v, nh1 = self.nterms
-        self.element = "ND_FECollection * " + \
+        self.element = "RT_FECollection * " + \
             str(nnd) + ", H1_FECollection * "+str(nh1v + nh1)
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 

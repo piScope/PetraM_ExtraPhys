@@ -102,8 +102,11 @@ class NonlocalJ2D_ColdEdge(Bdry, Phys):
             '''
             coeff1 = coeff1[[0, 1]]
             coeff1 = coeff1.get_realimag_coefficient(real)
-            gf.ProjectBdrCoefficientTangent(coeff1,
-                                            mfem.intArray(bdr_attr))
+            # gf.ProjectBdrCoefficientTangent(coeff1,
+            #                                mfem.intArray(bdr_attr))
+            gf.ProjectBdrCoefficientNormal(coeff1,
+                                           mfem.intArray(bdr_attr))
+
         else:
             '''
             coeff1 = Ez(Exyz, self.get_root_phys().ind_vars,

@@ -219,6 +219,10 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         check = root.check_kfes(kfes)
         if check == 3:
             return True
+        elif check == 4:
+            return True
+        else:
+            return False
 
     def has_mixed_contribution(self):
         return True
@@ -264,8 +268,11 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
             if idx != 0:
                 message = "Add curlcurl + mass integrator contribution"
                 kappa = coeffs["kappa"]
-                self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
-                                    mfem.CurlCurlIntegrator)
+                # self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
+                #                    mfem.CurlCurlIntegrator)
+                self.add_integrator(engine, 'divdiv', -kappa, a.AddDomainIntegrator,
+                                    mfem.DivDivIntegrator)
+
                 dd = coeffs["dterms"][idx-1]
                 self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
@@ -276,12 +283,14 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                 self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
         elif dep_var in jpnames:
+            idx = jpnames.index(dep_var)
+            message = "Add mass integrator contribution (jp)"
             if real:  # -1
                 mone = mfem.ConstantCoefficient(-1.0)
                 self.add_integrator(engine, '-1', mone, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
         else:
-            assert False, "should not come here"
+            assert False, "should not come here:" + str(dep_var)
 
         if real:
             dprint1(message, "(real)",  dep_var, idx)
@@ -337,15 +346,22 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                 dprint1(
                     "Add mixed vector laplacian contribution(real)"  "r/c", r, c, is_trans)
 
-                one = mfem.ConstantCoefficient(1.0)
-                mone = mfem.ConstantCoefficient(-1.0)
                 if c in jxynames and r in jpnames:
                     # div
+                    # self.add_integrator(engine, 'div', one,
+                    #                    mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
+                    # (curl sigma, Jtest)
+                    one = mfem.MatrixConstantCoefficient([[0, 1.], [-1, 0.]])
                     self.add_integrator(engine, 'div', one,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
 
                 elif r in jxynames and c in jpnames:
                     # grad
+                    # one = mfem.ConstantCoefficient(1.0)
+                    # self.add_integrator(engine, 'grad', one,
+                    #                    mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
+                    # -(u, curl t)
+                    one = mfem.MatrixConstantCoefficient([[0, -1.], [1, 0.]])
                     self.add_integrator(engine, 'grad', one,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
 
