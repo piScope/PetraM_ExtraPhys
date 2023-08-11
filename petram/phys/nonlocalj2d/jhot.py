@@ -33,10 +33,10 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
 
     def has_jxy(self):
         return int(self.j_direction == 'xy')
-    
+
     def has_jx(self):
         return int(self.j_direction == 'x')
-    
+
     def has_jy(self):
         return int(self.j_direction == 'y')
 
@@ -82,7 +82,7 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
             return True
         if check == 9 and dir == 'y':
             return True
-        
+
         return False
 
     def has_mixed_contribution(self):
@@ -124,22 +124,22 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         else:
             return
 
-        sc = mfem.ConstantCoefficient(-1) 
+        sc = mfem.ConstantCoefficient(-1)
         dir = self.j_direction
 
         if dir == 'xy':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
                                 mfem.VectorFEMassIntegrator)
-            
+
         elif dir == 'x':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
-            
+
         elif dir == 'y':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
 
-        elif dir == 'z':            
+        elif dir == 'z':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
 
@@ -163,12 +163,14 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         dir = self.j_direction
         if dir == 'xy':
             base = root.extra_vars_basexy
-        elif dir == 'z':
-            base = root.extra_vars_basex            
-        elif dir == 'z':
-            base = root.extra_vars_basey            
+        elif dir == 'x':
+            base = root.extra_vars_basex
+        elif dir == 'y':
+            base = root.extra_vars_basey
         elif dir == 'z':
             base = root.extra_vars_basez
+        else:
+            assert False, "should not come here"
 
         if r == base and c.startswith(base):
             sc = mfem.ConstantCoefficient(1)

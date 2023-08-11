@@ -42,7 +42,7 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
 
     def count_y_terms(self):
         return 0
-    
+
     def count_z_terms(self):
         return 0
 
@@ -54,7 +54,7 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
 
     def has_jx(self):
         return 0
-    
+
     def has_jy(self):
         return 0
 
@@ -72,7 +72,7 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
 
     def get_jy_names(self):
         return []
-    
+
     def get_jz_names(self):
         return []
 
@@ -162,6 +162,22 @@ class NonlocalJ2D(PhysModule):
                        if hasattr(x, "count_p_terms")])
 
     @property
+    def nxterms(self):
+        if "Domain" not in self:
+            return 0
+        return np.sum([x.count_x_terms()
+                       for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "count_x_terms")])
+
+    @property
+    def nyterms(self):
+        if "Domain" not in self:
+            return 0
+        return np.sum([x.count_y_terms()
+                       for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "count_y_terms")])
+
+    @property
     def nzterms(self):
         if "Domain" not in self:
             return 0
@@ -178,10 +194,18 @@ class NonlocalJ2D(PhysModule):
                            if hasattr(x, "has_jxy")]))
 
     @property
+    def has_jp(self):
+        if "Domain" not in self:
+            return 0
+        return int(np.any([x.has_jp()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_jp")]))
+
+    @property
     def has_jx(self):
         if "Domain" not in self:
             return 0
-        return int(np.any([x.has_jxy()
+        return int(np.any([x.has_jx()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jx")]))
 
@@ -189,17 +213,9 @@ class NonlocalJ2D(PhysModule):
     def has_jy(self):
         if "Domain" not in self:
             return 0
-        return int(np.any([x.has_jxy()
+        return int(np.any([x.has_jy()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jy")]))
-    
-    @property
-    def has_jp(self):
-        if "Domain" not in self:
-            return 0
-        return int(np.any([x.has_jp()
-                           for x in self["Domain"].walk_enabled()
-                           if hasattr(x, "has_jp")]))
 
     @property
     def has_jz(self):
@@ -244,7 +260,7 @@ class NonlocalJ2D(PhysModule):
         jpname = self.get_root_phys().extra_vars_basep
         jzname = self.get_root_phys().extra_vars_basez
         jxname = self.get_root_phys().extra_vars_basex
-        jyname = self.get_root_phys().extra_vars_basey        
+        jyname = self.get_root_phys().extra_vars_basey
 
         if dep_var == jxyname:
             return 0
@@ -285,7 +301,7 @@ class NonlocalJ2D(PhysModule):
         if self.has_jx:
             basename = self.extra_vars_basex
             ret.append(basename)
-                
+
         for x in self["Domain"].walk_enabled():
             if x.count_x_terms() > 0:
                 ret.extend(x.get_jx_names())
@@ -297,7 +313,7 @@ class NonlocalJ2D(PhysModule):
         for x in self["Domain"].walk_enabled():
             if x.count_y_terms() > 0:
                 ret.extend(x.get_jy_names())
-                
+
         if self.has_jz:
             basename = self.extra_vars_basez
             ret.append(basename)
@@ -342,7 +358,7 @@ class NonlocalJ2D(PhysModule):
         base = self.dep_vars_base_txt
         basename = base+self.dep_vars_suffix + "y"
         return basename
-    
+
     @property
     def extra_vars_basez(self):
         base = self.dep_vars_base_txt
@@ -355,8 +371,8 @@ class NonlocalJ2D(PhysModule):
 
     @property
     def vdim(self):
-        nnd, nh1v, nh1 = self.nterms
-        return [1] * (nnd + nh1v + nh1)
+        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
+        return [1] * (nnd + nh1v + nh1x + nh1y + nh1z)
 
     @vdim.setter
     def vdim(self, val):
@@ -379,7 +395,7 @@ class NonlocalJ2D(PhysModule):
         jxyname = self.get_root_phys().extra_vars_basexy
         jpname = self.get_root_phys().extra_vars_basep
         jxname = self.get_root_phys().extra_vars_basex
-        jyname = self.get_root_phys().extra_vars_basey        
+        jyname = self.get_root_phys().extra_vars_basey
         jzname = self.get_root_phys().extra_vars_basez
 
         fecs = []
@@ -415,16 +431,16 @@ class NonlocalJ2D(PhysModule):
 
         elif flag == 5:  # jz  components
             return self.order
-        
+
         elif flag == 6:  # jx  components
             return self.order
-        
+
         elif flag == 7:  # jy components
             return self.order
-        
+
         elif flag == 8:  # jx
             return self.order
-        
+
         elif flag == 9:  # jy
             return self.order
 
@@ -448,7 +464,7 @@ class NonlocalJ2D(PhysModule):
         v = super(NonlocalJ2D, self).attribute_set(v)
 
         nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
-        elements = "H1_FECollection * " + \
+        elements = "RT_FECollection * " + \
             str(nnd) + ", H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
 
         v["element"] = elements
@@ -513,7 +529,7 @@ class NonlocalJ2D(PhysModule):
         self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
 
-        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms        
+        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
         self.element = "RT_FECollection * " + \
             str(nnd) + ", H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
