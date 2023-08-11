@@ -37,6 +37,12 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
     def count_p_terms(self):
         return 0
 
+    def count_x_terms(self):
+        return 0
+
+    def count_y_terms(self):
+        return 0
+    
     def count_z_terms(self):
         return 0
 
@@ -44,6 +50,12 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
         return 0
 
     def has_jp(self):
+        return 0
+
+    def has_jx(self):
+        return 0
+    
+    def has_jy(self):
         return 0
 
     def has_jz(self):
@@ -55,6 +67,12 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
     def get_jp_names(self):
         return []
 
+    def get_jx_names(self):
+        return []
+
+    def get_jy_names(self):
+        return []
+    
     def get_jz_names(self):
         return []
 
@@ -160,6 +178,22 @@ class NonlocalJ2D(PhysModule):
                            if hasattr(x, "has_jxy")]))
 
     @property
+    def has_jx(self):
+        if "Domain" not in self:
+            return 0
+        return int(np.any([x.has_jxy()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_jx")]))
+
+    @property
+    def has_jy(self):
+        if "Domain" not in self:
+            return 0
+        return int(np.any([x.has_jxy()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_jy")]))
+    
+    @property
     def has_jp(self):
         if "Domain" not in self:
             return 0
@@ -178,9 +212,13 @@ class NonlocalJ2D(PhysModule):
     @property
     def nterms(self):
         '''
-        number of NE, H1(aux), H1 basis. 
+        number of NE/RT(xy), H1(aux), H1(x), H1 (y), H1(z)
         '''
-        return self.nxyterms + self.has_jxy, self.npterms, self.nzterms + self.has_jz
+        return (self.nxyterms + self.has_jxy,
+                self.npterms,
+                self.nxterms + self.has_jx,
+                self.nyterms + self.has_jy,
+                self.nzterms + self.has_jz,)
 
     def kfes2depvar(self, kfes):
         root = self.get_root_phys()
@@ -196,22 +234,36 @@ class NonlocalJ2D(PhysModule):
                 3: jxy contribution
                 4: jxyp contribution (div Jxy, or curl Jxy)
                 5: jz contribution
+                6: jx contribution
+                7: jy contribution
+                8: jx
+                9: jy
         '''
         dep_var = self.kfes2depvar(kfes)
         jxyname = self.get_root_phys().extra_vars_basexy
         jpname = self.get_root_phys().extra_vars_basep
         jzname = self.get_root_phys().extra_vars_basez
+        jxname = self.get_root_phys().extra_vars_basex
+        jyname = self.get_root_phys().extra_vars_basey        
 
         if dep_var == jxyname:
             return 0
         elif dep_var == jzname:
             return 2
+        elif dep_var == jxname:
+            return 8
+        elif dep_var == jyname:
+            return 9
         elif dep_var.startswith(jxyname):
             return 3
         elif dep_var.startswith(jpname):
             return 4
         elif dep_var.startswith(jzname):
             return 5
+        elif dep_var.startswith(jxname):
+            return 6
+        elif dep_var.startswith(jyname):
+            return 7
 
     @property
     def dep_vars(self):
@@ -230,6 +282,22 @@ class NonlocalJ2D(PhysModule):
             if x.count_p_terms() > 0:
                 ret.extend(x.get_jp_names())
 
+        if self.has_jx:
+            basename = self.extra_vars_basex
+            ret.append(basename)
+                
+        for x in self["Domain"].walk_enabled():
+            if x.count_x_terms() > 0:
+                ret.extend(x.get_jx_names())
+
+        if self.has_jy:
+            basename = self.extra_vars_basey
+            ret.append(basename)
+
+        for x in self["Domain"].walk_enabled():
+            if x.count_y_terms() > 0:
+                ret.extend(x.get_jy_names())
+                
         if self.has_jz:
             basename = self.extra_vars_basez
             ret.append(basename)
@@ -264,6 +332,18 @@ class NonlocalJ2D(PhysModule):
         return basename
 
     @property
+    def extra_vars_basex(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "x"
+        return basename
+
+    @property
+    def extra_vars_basey(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "y"
+        return basename
+    
+    @property
     def extra_vars_basez(self):
         base = self.dep_vars_base_txt
         basename = base+self.dep_vars_suffix + "z"
@@ -289,8 +369,8 @@ class NonlocalJ2D(PhysModule):
         ND
         RT
         '''
-        nnd, nh1v, nh1 = self.nterms
-        values = ['RT'] * nnd + ['H1'] * (nh1v + nh1)
+        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
+        values = ['RT'] * nnd + ['H1'] * (nh1v + nh1x + nh1y + nh1z)
         return values[idx]
 
     def get_fec(self):
@@ -298,6 +378,8 @@ class NonlocalJ2D(PhysModule):
 
         jxyname = self.get_root_phys().extra_vars_basexy
         jpname = self.get_root_phys().extra_vars_basep
+        jxname = self.get_root_phys().extra_vars_basex
+        jyname = self.get_root_phys().extra_vars_basey        
         jzname = self.get_root_phys().extra_vars_basez
 
         fecs = []
@@ -305,6 +387,10 @@ class NonlocalJ2D(PhysModule):
             if vv.startswith(jxyname):
                 fecs.append((vv, 'RT_FECollection'))
             if vv.startswith(jpname):
+                fecs.append((vv, 'H1_FECollection'))
+            if vv.startswith(jxname):
+                fecs.append((vv, 'H1_FECollection'))
+            if vv.startswith(jyname):
                 fecs.append((vv, 'H1_FECollection'))
             if vv.startswith(jzname):
                 fecs.append((vv, 'H1_FECollection'))
@@ -315,19 +401,31 @@ class NonlocalJ2D(PhysModule):
         self.vt_order.preprocess_params(self)
 
         flag = self.check_kfes(idx)
-        if flag == 0:  # jxyname:
+        if flag == 0:  # jxy
             return self.order
 
-        elif flag == 2:  # jzname:
+        elif flag == 2:  # jz
             return self.order
 
-        elif flag == 3:  # jxyname
+        elif flag == 3:  # jxy components
             return self.order
 
         elif flag == 4:  # jpname
             return self.order
 
-        elif flag == 5:  # jzname
+        elif flag == 5:  # jz  components
+            return self.order
+        
+        elif flag == 6:  # jx  components
+            return self.order
+        
+        elif flag == 7:  # jy components
+            return self.order
+        
+        elif flag == 8:  # jx
+            return self.order
+        
+        elif flag == 9:  # jy
             return self.order
 
     def postprocess_after_add(self, engine):
@@ -349,9 +447,9 @@ class NonlocalJ2D(PhysModule):
     def attribute_set(self, v):
         v = super(NonlocalJ2D, self).attribute_set(v)
 
-        nnd, nh1v, nh1 = self.nterms
-        elements = "RT_FECollection * " + \
-            str(nnd) + ", H1_FECollection * "+str(nh1v + nh1)
+        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
+        elements = "H1_FECollection * " + \
+            str(nnd) + ", H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
 
         v["element"] = elements
         v["dim"] = 1
@@ -415,9 +513,9 @@ class NonlocalJ2D(PhysModule):
         self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
 
-        nnd, nh1v, nh1 = self.nterms
+        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms        
         self.element = "RT_FECollection * " + \
-            str(nnd) + ", H1_FECollection * "+str(nh1v + nh1)
+            str(nnd) + ", H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
         from petram.utils import pm_from_gui_value
