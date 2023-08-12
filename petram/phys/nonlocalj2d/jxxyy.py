@@ -344,7 +344,7 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
                 dd = coeffs["dterms"][idx-1]
                 self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
-                                    mfem.VectorFEMassIntegrator)
+                                    mfem.MassIntegrator)
 
             else:  # constant term contribution
                 message = "Add mass integrator contribution"
@@ -362,7 +362,7 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
                 dd = coeffs["dterms"][idx-1]
                 self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
-                                    mfem.VectorFEMassIntegrator)
+                                    mfem.MassIntegrator)
 
             else:  # constant term contribution
                 message = "Add mass integrator contribution"
