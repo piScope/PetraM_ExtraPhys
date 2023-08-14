@@ -46,6 +46,25 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
     def has_jz(self):
         return int(self.j_direction == 'z')
 
+    def verify_setting(self):
+        if self.use_h1 and self.j_direction == 'xy':
+            flag = False
+        elif self.use_nd and self.j_direction == 'x':
+            flag = False
+        elif self.use_nd and self.j_direction == 'y':
+            flag = False
+        elif self.use_rt and self.j_direction == 'x':
+            flag = False
+        elif self.use_rt and self.j_direction == 'y':
+            flag = False
+        else:
+            flag = True
+
+        if flag:
+            return True, "", ""
+
+        return flag, "Incosistent FES", "RT/NDand H1 for xy components are not used simultaneously"
+
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
         Phys.attribute_set(self, v)

@@ -194,24 +194,11 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                                                       self.An_mode,
                                                       self._global_ns, self._local_ns,)
 
-    @property
-    def use_h1(self):
-        return self.discretization == "H1"
-
-    @property
-    def use_rt(self):
-        return self.discretization == "RT"
-
-    @property
-    def use_nd(self):
-        return self.discretization == "ND"
-
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
         Phys.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
-        v['discretization'] = 'H1'
         v['ra_nmax'] = 5
         v['ra_kprmax'] = 15
         v['ra_mmin'] = 3
@@ -233,33 +220,31 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
     def panel1_param(self):
         panels = super(NonlocalJ2D_Jxxyy, self).panel1_param()
-        panels.extend([["Discretization", None, 0, {}],
-                       ["An", None, 1, {"values": [
-                           "kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
-                       ["cyclotron harms.", None, 400, {}],
-                       ["-> RA. options", None, None, {"no_tlw_resize": True}],
-                       ["RA max kp*rho", None, 300, {}],
-                       ["RA #terms.", None, 400, {}],
-                       ["RA #grid.", None, 400, {}],
-                       ["<-"],
-                       # ["debug opts.", '', 0, {}], ])
-                       [None, None, 341, {"label": "Check RA.",
-                                          "func": 'plot_approx', "noexpand": True}], ])
+        panels.extend([
+            ["An", None, 1, {"values": [
+                "kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
+            ["cyclotron harms.", None, 400, {}],
+            ["-> RA. options", None, None, {"no_tlw_resize": True}],
+            ["RA max kp*rho", None, 300, {}],
+            ["RA #terms.", None, 400, {}],
+            ["RA #grid.", None, 400, {}],
+            ["<-"],
+            # ["debug opts.", '', 0, {}], ])
+            [None, None, 341, {"label": "Check RA.",
+                               "func": 'plot_approx', "noexpand": True}], ])
         # ["<-"],])
 
         return panels
 
     def get_panel1_value(self):
         values = super(NonlocalJ2D_Jxxyy, self).get_panel1_value()
-        values.extend([self.discretization,
-                       self.An_mode,
+        values.extend([self.An_mode,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self])
         return values
 
     def import_panel1_value(self, v):
         check = super(NonlocalJ2D_Jxxyy, self).import_panel1_value(v)
-        self.discretization = v[-7]
         self.An_mode = str(v[-6])
         self.ra_nmax = int(v[-5])
         self.ra_kprmax = float(v[-4])
