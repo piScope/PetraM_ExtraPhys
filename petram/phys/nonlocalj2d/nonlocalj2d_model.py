@@ -76,6 +76,18 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
     def get_jz_names(self):
         return []
 
+    @property
+    def use_h1(self):
+        return False
+
+    @property
+    def use_nd(self):
+        return False
+
+    @property
+    def use_rt(self):
+        return False
+
 
 class NonlocalJ2D_DefDomain(NonlocalJ2D_BaseDomain):
     can_delete = False
@@ -224,6 +236,28 @@ class NonlocalJ2D(PhysModule):
         return int(np.any([x.has_jz()
                            for x in self["Domain"].walk_enabled()
                            if hasattr(x, "has_jz")]))
+
+    #  determine Jxy elements
+    @property
+    def use_h1(self):
+        if "Domain" not in self:
+            return False
+        return np.any([x.use_h1 for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "use_h1")])
+
+    @property
+    def use_nd(self):
+        if "Domain" not in self:
+            return False
+        return np.any([x.use_nd for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "use_nd")])
+
+    @property
+    def use_rt(self):
+        if "Domain" not in self:
+            return False
+        return np.any([x.use_rt for x in self["Domain"].walk_enabled()
+                       if hasattr(x, "use_rt")])
 
     @property
     def nterms(self):
@@ -386,7 +420,10 @@ class NonlocalJ2D(PhysModule):
         RT
         '''
         nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
-        values = ['RT'] * nnd + ['H1'] * (nh1v + nh1x + nh1y + nh1z)
+        if self.use_nd:
+            values = ['ND'] * nnd + ['H1'] * (nh1v + nh1x + nh1y + nh1z)
+        else:
+            values = ['RT'] * nnd + ['H1'] * (nh1v + nh1x + nh1y + nh1z)
         return values[idx]
 
     def get_fec(self):
@@ -401,15 +438,33 @@ class NonlocalJ2D(PhysModule):
         fecs = []
         for vv in v:
             if vv.startswith(jxyname):
-                fecs.append((vv, 'RT_FECollection'))
+                if self.use_nd:
+                    fecs.append((vv, 'ND_FECollection'))
+                if self.use_rt:
+                    fecs.append((vv, 'RT_FECollection'))
+                continue
+
             if vv.startswith(jpname):
                 fecs.append((vv, 'H1_FECollection'))
-            if vv.startswith(jxname):
+                continue
+
+            if vv == jxname:
                 fecs.append((vv, 'H1_FECollection'))
-            if vv.startswith(jyname):
+
+            elif self.use_h1 and vv.startswith(jxname):
                 fecs.append((vv, 'H1_FECollection'))
-            if vv.startswith(jzname):
+
+            elif vv == jyname:
                 fecs.append((vv, 'H1_FECollection'))
+
+            elif self.use_h1 and vv.startswith(jyname):
+                fecs.append((vv, 'H1_FECollection'))
+
+            elif vv.startswith(jzname):
+                fecs.append((vv, 'H1_FECollection'))
+
+            else:
+                assert False, "should not come here"
 
         return fecs
 
@@ -464,8 +519,16 @@ class NonlocalJ2D(PhysModule):
         v = super(NonlocalJ2D, self).attribute_set(v)
 
         nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
-        elements = "RT_FECollection * " + \
-            str(nnd) + ", H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
+        if self.use_rt:
+            elements = "RT_FECollection * " + \
+                str(nnd) + ", H1_FECollection * " + \
+                str(nh1v + nh1x + nh1y + nh1z)
+        elif self.use_nd:
+            elements = "ND_FECollection * " + \
+                str(nnd) + ", H1_FECollection * " + \
+                str(nh1v + nh1x + nh1y + nh1z)
+        else:
+            elements = "H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
 
         v["element"] = elements
         v["dim"] = 1
@@ -530,8 +593,15 @@ class NonlocalJ2D(PhysModule):
         self.dep_vars_suffix = str(v[1])
 
         nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
-        self.element = "RT_FECollection * " + \
-            str(nnd) + ", H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
+        if self.use_rt:
+            self.element = "RT_FECollection * " + \
+                str(nnd) + ", H1_FECollection * " + \
+                str(nh1v + nh1x + nh1y + nh1z)
+        else:
+            self.element = "ND_FECollection * " + \
+                str(nnd) + ", H1_FECollection * " + \
+                str(nh1v + nh1x + nh1y + nh1z)
+
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
         from petram.utils import pm_from_gui_value

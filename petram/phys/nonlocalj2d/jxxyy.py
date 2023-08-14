@@ -113,12 +113,10 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         return ydiag
 
     def count_xy_terms(self):
-        return 0
-        # return len(self.get_jxy_names())
+        return len(self.get_jxy_names())
 
     def count_p_terms(self):
-        return 0
-        # return len(self.get_jp_names())
+        return len(self.get_jp_names())
 
     def count_x_terms(self):
         return len(self.get_jx_names())
@@ -138,8 +136,11 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                   for i in range(self._count_perp_terms())]
         pdiag = [basep + self.name() + str(i+2)
                  for i in range(self._count_perp_terms()-1)]
-        # return xydiag, pdiag
-        return [], []
+
+        if self.use_h1:
+            return [], []
+        else:
+            return xydiag, pdiag
 
     def current_names_xy(self):
         # all possible names without considering run-condition
@@ -150,7 +151,11 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                  for i in range(self._count_perp_terms())]
         ydiag = [basey + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
-        return xdiag, ydiag
+
+        if self.use_h1:
+            return xdiag, ydiag
+        else:
+            return [], []
 
     def current_names(self):
         xydiag, pdiag = self.current_names_xyp()
@@ -189,11 +194,24 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                                                       self.An_mode,
                                                       self._global_ns, self._local_ns,)
 
+    @property
+    def use_h1(self):
+        return self.discretization == "H1"
+
+    @property
+    def use_rt(self):
+        return self.discretization == "RT"
+
+    @property
+    def use_nd(self):
+        return self.discretization == "ND"
+
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
         Phys.attribute_set(self, v)
         v['sel_readonly'] = False
         v['sel_index'] = []
+        v['discretization'] = 'H1'
         v['ra_nmax'] = 5
         v['ra_kprmax'] = 15
         v['ra_mmin'] = 3
@@ -215,7 +233,9 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
     def panel1_param(self):
         panels = super(NonlocalJ2D_Jxxyy, self).panel1_param()
-        panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
+        panels.extend([["Discretization", None, 0, {}],
+                       ["An", None, 1, {"values": [
+                           "kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
                        ["cyclotron harms.", None, 400, {}],
                        ["-> RA. options", None, None, {"no_tlw_resize": True}],
                        ["RA max kp*rho", None, 300, {}],
@@ -231,15 +251,15 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
     def get_panel1_value(self):
         values = super(NonlocalJ2D_Jxxyy, self).get_panel1_value()
-        values.extend([self.An_mode,
+        values.extend([self.discretization,
+                       self.An_mode,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self])
         return values
 
     def import_panel1_value(self, v):
-
-        print("value", v)
         check = super(NonlocalJ2D_Jxxyy, self).import_panel1_value(v)
+        self.discretization = v[-7]
         self.An_mode = str(v[-6])
         self.ra_nmax = int(v[-5])
         self.ra_kprmax = float(v[-4])
@@ -319,10 +339,13 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
             if idx != 0:
                 message = "Add curlcurl or divdiv + mass integrator contribution"
                 kappa = coeffs["kappa"]
-                # self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
-                #                    mfem.CurlCurlIntegrator)
-                self.add_integrator(engine, 'divdiv', -kappa, a.AddDomainIntegrator,
-                                    mfem.DivDivIntegrator)
+
+                if self.use_nd:
+                    self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
+                                        mfem.CurlCurlIntegrator)
+                else:
+                    self.add_integrator(engine, 'divdiv', -kappa, a.AddDomainIntegrator,
+                                        mfem.DivDivIntegrator)
 
                 dd = coeffs["dterms"][idx-1]
                 self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
@@ -480,22 +503,29 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
                 if c in jxynames and r in jpnames:
                     # div
-                    # self.add_integrator(engine, 'div', one,
-                    #                    mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
+                    if self.use_nd:
+                        one = mfem.ConstantCoefficient(1.0)
+                        self.add_integrator(engine, 'div', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
                     # (curl sigma, Jtest)
-                    one = mfem.MatrixConstantCoefficient([[0, 1.], [-1, 0.]])
-                    self.add_integrator(engine, 'div', one,
-                                        mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
+                    else:
+                        one = mfem.MatrixConstantCoefficient(
+                            [[0, 1.], [-1, 0.]])
+                        self.add_integrator(engine, 'div', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
 
                 elif r in jxynames and c in jpnames:
                     # grad
-                    # one = mfem.ConstantCoefficient(1.0)
-                    # self.add_integrator(engine, 'grad', one,
-                    #                    mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
+                    if self.use_nd:
+                        one = mfem.ConstantCoefficient(1.0)
+                        self.add_integrator(engine, 'grad', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
                     # -(u, curl t)
-                    one = mfem.MatrixConstantCoefficient([[0, -1.], [1, 0.]])
-                    self.add_integrator(engine, 'grad', one,
-                                        mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
+                    else:
+                        one = mfem.MatrixConstantCoefficient(
+                            [[0, -1.], [1, 0.]])
+                        self.add_integrator(engine, 'grad', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
 
             else:
                 dprint1(
