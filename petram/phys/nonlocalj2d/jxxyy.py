@@ -97,12 +97,20 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         return int(self._nperpterms)
 
     def get_jxy_names(self):
-        xydiag, pdiag = self.current_names()
+        xydiag, pdiag = self.current_names_xyp()
         return xydiag
 
     def get_jp_names(self):
-        xydiag, pdiag = self.current_names()
+        xydiag, pdiag = self.current_names_xyp()
         return pdiag
+
+    def get_jx_names(self):
+        xdiag, ydiag = self.current_names_xy()
+        return xdiag
+
+    def get_jy_names(self):
+        xdiag, ydiag = self.current_names_xy()
+        return ydiag
 
     def count_xy_terms(self):
         return len(self.get_jxy_names())
@@ -110,10 +118,16 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
     def count_p_terms(self):
         return len(self.get_jp_names())
 
+    def count_x_terms(self):
+        return len(self.get_jx_names())
+
+    def count_y_terms(self):
+        return len(self.get_jy_names())
+
     def count_z_terms(self):
         return 0
 
-    def current_names(self):
+    def current_names_xyp(self):
         # all possible names without considering run-condition
         basexy = self.get_root_phys().extra_vars_basexy
         basep = self.get_root_phys().extra_vars_basep
@@ -122,7 +136,31 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                   for i in range(self._count_perp_terms())]
         pdiag = [basep + self.name() + str(i+2)
                  for i in range(self._count_perp_terms()-1)]
-        return xydiag, pdiag
+
+        if self.use_h1:
+            return [], []
+        else:
+            return xydiag, pdiag
+
+    def current_names_xy(self):
+        # all possible names without considering run-condition
+        basex = self.get_root_phys().extra_vars_basex
+        basey = self.get_root_phys().extra_vars_basey
+
+        xdiag = [basex + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        ydiag = [basey + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+
+        if self.use_h1:
+            return xdiag, ydiag
+        else:
+            return [], []
+
+    def current_names(self):
+        xydiag, pdiag = self.current_names_xyp()
+        xdiag, ydiag = self.current_names_xy()
+        return xydiag, pdiag, xdiag, ydiag
 
     @property
     def jited_coeff(self):
@@ -182,16 +220,18 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
     def panel1_param(self):
         panels = super(NonlocalJ2D_Jxxyy, self).panel1_param()
-        panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
-                       ["cyclotron harms.", None, 400, {}],
-                       ["-> RA. options", None, None, {"no_tlw_resize": True}],
-                       ["RA max kp*rho", None, 300, {}],
-                       ["RA #terms.", None, 400, {}],
-                       ["RA #grid.", None, 400, {}],
-                       ["<-"],
-                       # ["debug opts.", '', 0, {}], ])
-                       [None, None, 341, {"label": "RA.",
-                                          "func": 'plot_approx', "noexpand": True}], ])
+        panels.extend([
+            ["An", None, 1, {"values": [
+                "kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
+            ["cyclotron harms.", None, 400, {}],
+            ["-> RA. options", None, None, {"no_tlw_resize": True}],
+            ["RA max kp*rho", None, 300, {}],
+            ["RA #terms.", None, 400, {}],
+            ["RA #grid.", None, 400, {}],
+            ["<-"],
+            # ["debug opts.", '', 0, {}], ])
+            [None, None, 341, {"label": "Check RA.",
+                               "func": 'plot_approx', "noexpand": True}], ])
         # ["<-"],])
 
         return panels
@@ -204,7 +244,6 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         return values
 
     def import_panel1_value(self, v):
-
         check = super(NonlocalJ2D_Jxxyy, self).import_panel1_value(v)
         self.An_mode = str(v[-6])
         self.ra_nmax = int(v[-5])
@@ -217,17 +256,27 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check == 3:
+        if check == 3:     # jxy
             return True
+        elif check == 4:   # jp
+            return True
+        elif check == 6:   # jx
+            return True
+        elif check == 7:   # jy
+            return True
+        else:
+            return False
 
     def has_mixed_contribution(self):
         return True
 
     def get_mixedbf_loc(self):
-        xydiag, pdiag = self.current_names()
+        xydiag, pdiag, xdiag, ydiag = self.current_names()
 
         jxynames = self.get_jxy_names()
         jpnames = self.get_jp_names()
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -244,6 +293,15 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
             loc.append((nxy, np, 1, 1))
             loc.append((np, nxy, 1, 1))
 
+        for n in xdiag:   # Ex -> Jx
+            if n in jxnames:
+                loc.append((n, Exyname, 1, 1))
+                loc.append((Exyname, n, 1, 1))
+        for n in ydiag:   # Ex -> Jx
+            if n in jynames:
+                loc.append((n, Exyname, 1, 1))
+                loc.append((Exyname, n, 1, 1))
+
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
@@ -253,6 +311,8 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
         jxynames = self.get_jxy_names()
         jpnames = self.get_jp_names()
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
 
         # jxy[0] -- constant contribution
         # jxy[1:]  and pdiag are pair
@@ -262,10 +322,16 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
         if dep_var in jxynames:
             idx = jxynames.index(dep_var)
             if idx != 0:
-                message = "Add curlcurl + mass integrator contribution"
+                message = "Add curlcurl or divdiv + mass integrator contribution"
                 kappa = coeffs["kappa"]
-                self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
-                                    mfem.CurlCurlIntegrator)
+
+                if self.use_nd:
+                    self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
+                                        mfem.CurlCurlIntegrator)
+                else:
+                    self.add_integrator(engine, 'divdiv', -kappa, a.AddDomainIntegrator,
+                                        mfem.DivDivIntegrator)
+
                 dd = coeffs["dterms"][idx-1]
                 self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
@@ -275,13 +341,52 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                 kappa0 = coeffs["kappa0"]
                 self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
+
+        elif dep_var in jxnames:
+            idx = jxnames.index(dep_var)
+            if idx != 0:
+                message = "Add diffusion + mass integrator contribution"
+                kappa = coeffs["kappa"]
+                self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
+                                    mfem.DiffusionIntegrator)
+
+                dd = coeffs["dterms"][idx-1]
+                self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+
+            else:  # constant term contribution
+                message = "Add mass integrator contribution"
+                kappa0 = coeffs["kappa0"]
+                self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+
+        elif dep_var in jynames:
+            idx = jynames.index(dep_var)
+            if idx != 0:
+                message = "Add diffusion + mass integrator contribution"
+                kappa = coeffs["kappa"]
+                self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
+                                    mfem.DiffusionIntegrator)
+
+                dd = coeffs["dterms"][idx-1]
+                self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+
+            else:  # constant term contribution
+                message = "Add mass integrator contribution"
+                kappa0 = coeffs["kappa0"]
+                self.add_integrator(engine, 'mass', -kappa0, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+
         elif dep_var in jpnames:
+            idx = jpnames.index(dep_var)
+            message = "Add mass integrator contribution (jp)"
             if real:  # -1
                 mone = mfem.ConstantCoefficient(-1.0)
                 self.add_integrator(engine, '-1', mone, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
         else:
-            assert False, "should not come here"
+            assert False, "should not come here:" + str(dep_var)
 
         if real:
             dprint1(message, "(real)",  dep_var, idx)
@@ -292,6 +397,8 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                               real=True):
         jxynames = self.get_jxy_names()
         jpnames = self.get_jp_names()
+        jxnames = self.get_jx_names()
+        jynames = self.get_jy_names()
 
         facp = self._jitted_coeffs[0]["facp"]
         facm = self._jitted_coeffs[0]["facm"]
@@ -311,9 +418,20 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
                         r, c, is_trans)
 
             if r == Exyname:
-                idx = jxynames.index(c)
+                if c in jxynames:
+                    idx = jxynames.index(c)
+                elif c in jxnames:
+                    idx = jxnames.index(c)
+                elif c in jynames:
+                    idx = jynames.index(c)
             else:
-                idx = jxynames.index(r)
+                if r in jxynames:
+                    idx = jxynames.index(r)
+                elif r in jxnames:
+                    idx = jxnames.index(r)
+                elif r in jynames:
+                    idx = jynames.index(r)
+
             if idx == 0:
                 slot = self._jitted_coeffs[0]["c0"]
             else:
@@ -321,33 +439,78 @@ class NonlocalJ2D_Jxxyy(NonlocalJ2D_BaseDomain):
 
             if c == Exyname:
                 ccoeff = slot["diag"]*facp
-                self.add_integrator(engine, 'cterm', ccoeff,
-                                    mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
+                if r in jxynames:
+                    self.add_integrator(engine, 'cterm', ccoeff,
+                                        mbf.AddDomainIntegrator,  mfem.MixedVectorMassIntegrator)
+
+                elif r in jxnames:
+                    ccoeff2 = self._jitted_coeffs[0]["xvec"]*ccoeff
+                    self.add_integrator(engine, 'cterm', ccoeff2,
+                                        mbf.AddDomainIntegrator,  mfem.MixedDotProductIntegrator)
+
+                elif r in jynames:
+                    ccoeff2 = self._jitted_coeffs[0]["yvec"]*ccoeff
+                    self.add_integrator(engine, 'cterm', ccoeff2,
+                                        mbf.AddDomainIntegrator,  mfem.MixedDotProductIntegrator)
+
+                else:
+                    assert False, "should not come here" + \
+                        str(c) + ":" + str(r)
+
             else:
                 ccoeff = slot["diag"]*facm
-                self.add_integrator(engine, 'cterm', ccoeff,
-                                    mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
-                if real:  # alpha J
-                    alpha = self._jitted_coeffs[1]
-                    self.add_integrator(engine, 'jcontribution', alpha,
+                if c in jxynames:
+                    self.add_integrator(engine, 'cterm', ccoeff,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
+                    if real:  # alpha J
+                        alpha = self._jitted_coeffs[1]
+                        self.add_integrator(engine, 'jcontribution', alpha,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
+
+                elif c in jxnames:
+                    ccoeff2 = self._jitted_coeffs[0]["xvec"]*ccoeff
+                    self.add_integrator(engine, 'cterm', ccoeff2,
+                                        mbf.AddDomainIntegrator,  mfem.MixedVectorProductIntegrator)
+
+                elif c in jynames:
+                    ccoeff2 = self._jitted_coeffs[0]["yvec"]*ccoeff
+                    self.add_integrator(engine, 'cterm', ccoeff2,
+                                        mbf.AddDomainIntegrator,  mfem.MixedVectorProductIntegrator)
+
+                else:
+                    assert False, "should not come here" + \
+                        str(c) + ":" + str(r)
 
         else:
             if real:
                 dprint1(
                     "Add mixed vector laplacian contribution(real)"  "r/c", r, c, is_trans)
 
-                one = mfem.ConstantCoefficient(1.0)
-                mone = mfem.ConstantCoefficient(-1.0)
                 if c in jxynames and r in jpnames:
                     # div
-                    self.add_integrator(engine, 'div', one,
-                                        mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
+                    if self.use_nd:
+                        one = mfem.ConstantCoefficient(1.0)
+                        self.add_integrator(engine, 'div', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
+                    # (curl sigma, Jtest)
+                    else:
+                        one = mfem.MatrixConstantCoefficient(
+                            [[0, 1.], [-1, 0.]])
+                        self.add_integrator(engine, 'div', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
 
                 elif r in jxynames and c in jpnames:
                     # grad
-                    self.add_integrator(engine, 'grad', one,
-                                        mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
+                    if self.use_nd:
+                        one = mfem.ConstantCoefficient(1.0)
+                        self.add_integrator(engine, 'grad', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
+                    # -(u, curl t)
+                    else:
+                        one = mfem.MatrixConstantCoefficient(
+                            [[0, -1.], [1, 0.]])
+                        self.add_integrator(engine, 'grad', one,
+                                            mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
 
             else:
                 dprint1(

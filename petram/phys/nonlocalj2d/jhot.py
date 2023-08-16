@@ -34,11 +34,36 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
     def has_jxy(self):
         return int(self.j_direction == 'xy')
 
+    def has_jx(self):
+        return int(self.j_direction == 'x')
+
+    def has_jy(self):
+        return int(self.j_direction == 'y')
+
     def has_jp(self):
         return 0
 
     def has_jz(self):
         return int(self.j_direction == 'z')
+
+    def verify_setting(self):
+        if self.use_h1 and self.j_direction == 'xy':
+            flag = False
+        elif self.use_nd and self.j_direction == 'x':
+            flag = False
+        elif self.use_nd and self.j_direction == 'y':
+            flag = False
+        elif self.use_rt and self.j_direction == 'x':
+            flag = False
+        elif self.use_rt and self.j_direction == 'y':
+            flag = False
+        else:
+            flag = True
+
+        if flag:
+            return True, "", ""
+
+        return flag, "Incosistent FES", "RT/NDand H1 for xy components are not used simultaneously"
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -52,7 +77,7 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         from wx import CB_READONLY
         panels = super(NonlocalJ2D_Jhot, self).panel1_param()
         panels.append(["direction", "xy", 4,
-                       {"style": CB_READONLY, "choices": ["xy", "z"]}])
+                       {"style": CB_READONLY, "choices": ["xy", "x", "y", "z"]}])
         return panels
 
     def get_panel1_value(self):
@@ -72,6 +97,11 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
             return True
         if check == 2 and dir == 'z':
             return True
+        if check == 8 and dir == 'x':
+            return True
+        if check == 9 and dir == 'y':
+            return True
+
         return False
 
     def has_mixed_contribution(self):
@@ -88,6 +118,12 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         dir = self.j_direction
         if dir == 'xy':
             base = root.extra_vars_basexy
+            Ename = var_s[0]
+        elif dir == 'x':
+            base = root.extra_vars_basex
+            Ename = var_s[0]
+        elif dir == 'y':
+            base = root.extra_vars_basey
             Ename = var_s[0]
         elif dir == 'z':
             base = root.extra_vars_basez
@@ -107,16 +143,27 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         else:
             return
 
-        sc = mfem.ConstantCoefficient(-1) 
+        sc = mfem.ConstantCoefficient(-1)
         dir = self.j_direction
 
         if dir == 'xy':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
                                 mfem.VectorFEMassIntegrator)
 
-        else:
+        elif dir == 'x':
             self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
+
+        elif dir == 'y':
+            self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
+
+        elif dir == 'z':
+            self.add_integrator(engine, 'neg_identity', sc, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
+
+        else:
+            assert False, "should not come here"
 
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
@@ -135,10 +182,14 @@ class NonlocalJ2D_Jhot(NonlocalJ2D_BaseDomain):
         dir = self.j_direction
         if dir == 'xy':
             base = root.extra_vars_basexy
-            Ename = var_s[0]
+        elif dir == 'x':
+            base = root.extra_vars_basex
+        elif dir == 'y':
+            base = root.extra_vars_basey
         elif dir == 'z':
             base = root.extra_vars_basez
-            Ename = var_s[1]
+        else:
+            assert False, "should not come here"
 
         if r == base and c.startswith(base):
             sc = mfem.ConstantCoefficient(1)

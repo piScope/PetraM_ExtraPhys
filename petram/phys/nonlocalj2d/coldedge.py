@@ -63,13 +63,29 @@ class NonlocalJ2D_ColdEdge(Bdry, Phys):
             c0 = (jx0, jy0)
             txt = " (xy component)"
             is_xy = True
+            
         elif check in (4,):
             txt = " (p component)"
             return
+        
         elif check in (2, 5):
             c0 = jz0
             txt = " (z component)"
             is_xy = False
+            comp = 2
+            
+        elif check in (6, 8):
+            c0 = jx0
+            txt = " (x component)"
+            is_xy = False
+            comp = 0            
+
+        elif check in (7, 9):
+            c0 = jy0
+            txt = " (y component)"
+            is_xy = False
+            comp = 1
+
         else:
             assert False, 'Unknown check return value'
 
@@ -102,15 +118,25 @@ class NonlocalJ2D_ColdEdge(Bdry, Phys):
             '''
             coeff1 = coeff1[[0, 1]]
             coeff1 = coeff1.get_realimag_coefficient(real)
-            gf.ProjectBdrCoefficientTangent(coeff1,
-                                            mfem.intArray(bdr_attr))
+            
+            name = gf.FESpace().FEColl().Name()
+
+            if name.startswith("ND"):
+                 gf.ProjectBdrCoefficientTangent(coeff1,
+                                                 mfem.intArray(bdr_attr))
+            elif name.startswith("RT"):
+                 gf.ProjectBdrCoefficientNormal(coeff1,
+                                           mfem.intArray(bdr_attr))
+            else:
+                assert False, "should not come here"
+
         else:
             '''
             coeff1 = Ez(Exyz, self.get_root_phys().ind_vars,
                         self._local_ns, self._global_ns,
                         real = real)
             '''
-            coeff1 = coeff1[2]
+            coeff1 = coeff1[comp]
             coeff1 = coeff1.get_realimag_coefficient(real)
             gf.ProjectBdrCoefficient(coeff1,
                                      mfem.intArray(bdr_attr))
