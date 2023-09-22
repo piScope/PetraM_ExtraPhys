@@ -43,10 +43,14 @@ data = (('B', VtableElement('bext', type='array',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
-        ('frac_collisions', VtableElement('frac_collisions', type='float',
-                                          guilabel='alpha',
-                                          default="0.0",
-                                          tip="additional damping due to non-local current(sigma*Jhot)")),
+        ('tene', VtableElement('tene', type='array',
+                               guilabel='collisions (Te, ne)',
+                               default="10, 1e17",
+                               tip="electron density and temperature for collision")),
+        # ('frac_collisions', VtableElement('frac_collisions', type='float',
+        #                                  guilabel='alpha',
+        #                                  default="0.0",
+        #                                  tip="additional damping due to non-local current(sigma*Jhot)")),
         ('ky', VtableElement('ky', type='float',
                              guilabel='ky',
                              default=0.,
@@ -75,7 +79,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
 
     def get_ky(self):
         if hasattr(self, '_global_ns'):
-            B, dens, temp, mass, charge, alpha, ky, kz = self.vt.make_value_or_expression(
+            B, dens, temp, mass, charge, tene,  ky, kz = self.vt.make_value_or_expression(
                 self)
         else:
             ky = 0
@@ -91,7 +95,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, alpha, ky, kz = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, tene, ky, kz = self.vt.make_value_or_expression(
             self)
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -179,7 +183,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, alpha, ky, kz = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, tene, ky, kz = self.vt.make_value_or_expression(
             self)
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -193,7 +197,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
                            ngrid=ngrid)
         self._jitted_coeffs = build_perp3_coefficients(ind_vars, ky, kz, omega, B, dens,
-                                                       temp, mass, charge, alpha, fits,
+                                                       temp, mass, charge, tene, fits,
                                                        self.An_mode, self.use_4_components,
                                                        self._global_ns, self._local_ns,)
 
@@ -206,6 +210,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
         v['ra_kprmax'] = 15
         v['ra_mmin'] = 5
         v['ra_ngrid'] = 300
+        v['ra_pmax'] = 15
         v['An_mode'] = "kpara->0"
         v['use_4_components'] = "xx-xy-yx-yy"
         v['debug_option'] = ''
@@ -218,9 +223,10 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
         kprmax = self.ra_kprmax
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
+        pmax = self.ra_pmax
 
         plot_terms(nmax=nmax, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
-                   ngrid=ngrid)
+                   ngrid=ngrid, pmax=pmax)
 
     def panel1_param(self):
         panels = super(NonlocalJ1D_Jperp3, self).panel1_param()
@@ -232,6 +238,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
                        ["RA max kp*rho", None, 300, {}],
                        ["RA #terms.", None, 400, {}],
                        ["RA #grid.", None, 400, {}],
+                       ["Plot max.", None, 300, {}],
                        ["<-"],
                        #                       ["debug opts.", '', 0, {}], ])
                        [None, None, 341, {"label": "Check RA.",
@@ -244,19 +251,20 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
         values = super(NonlocalJ1D_Jperp3, self).get_panel1_value()
         values.extend([self.An_mode, self.use_4_components,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
-                       self.ra_ngrid, self])
+                       self.ra_ngrid, self.ra_pmax, self])
 
         return values
 
     def import_panel1_value(self, v):
 
         check = super(NonlocalJ1D_Jperp3, self).import_panel1_value(v)
-        self.An_mode = str(v[-7])
-        self.use_4_components = str(v[-6])
-        self.ra_nmax = int(v[-5])
-        self.ra_kprmax = float(v[-4])
-        self.ra_mmin = int(v[-3])
-        self.ra_ngrid = int(v[-2])
+        self.An_mode = str(v[-8])
+        self.use_4_components = str(v[-7])
+        self.ra_nmax = int(v[-6])
+        self.ra_kprmax = float(v[-5])
+        self.ra_mmin = int(v[-4])
+        self.ra_ngrid = int(v[-3])
+        self.ra_pmax = float(v[-2])
         #self.debug_option = str(v[-1])
         return True
 
@@ -475,8 +483,8 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
 
-        if r == Exname or r == Eyname:
-            if real:  # alpha J
-                alpha = self._jitted_coeffs[1]
-                self.add_integrator(engine, 'jcontribution', alpha,
-                                    mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+        # if r == Exname or r == Eyname:
+        #    if real:  # alpha J
+        #        alpha = self._jitted_coeffs[1]
+        #        self.add_integrator(engine, 'jcontribution', alpha,
+        #                            mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
