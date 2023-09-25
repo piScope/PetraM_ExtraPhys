@@ -118,9 +118,11 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return int(self._nperpterms)
 
     def get_jx_names(self):
-        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
-        ky = self.get_ky()
-
+        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        #ky = self.get_ky()
+        xdiag, ydiag = self.current_names()
+        return xdiag
+        '''
         if self.use_4_components == "xx only":
             if ky == 0:
                 return xdiag
@@ -132,15 +134,19 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                 return xdiag + xcross
             else:
                 return xdiag + xcross + xgrad
+        '''
 
     def get_jy_names(self):
-        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
-        ky = self.get_ky()
+        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        #ky = self.get_ky()
+
+        xdiag, ydiag = self.current_names()
 
         if self.use_4_components == "xx only":
             return []
         else:
-            return ydiag + ycross + ygrad
+            return ydiag
+#            return ydiag + ycross + ygrad
 
     def count_x_terms(self):
         return len(self.get_jx_names())
@@ -164,6 +170,8 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                   for i in range(self._count_perp_terms())] +
                  [basey + "v" + self.name() + str(i+1)
                   for i in range(self._count_perp_terms())])
+        return xdiag, ydiag
+        '''
         xcross = ([basex + "u" + self.name() + "c" + str(i+1)
                    for i in range(self._count_perp_terms())] +
                   [basex + "v" + self.name() + "c" + str(i+1)
@@ -180,8 +188,8 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                   for i in range(self._count_perp_terms())] +
                  [basey + "v" + self.name() + "g" + str(i+1)
                   for i in range(self._count_perp_terms())])
-
         return xdiag, xcross, xgrad, ydiag, ycross, ygrad
+        '''
 
     @property
     def jited_coeff(self):
@@ -293,10 +301,14 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
-        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        xdiag, ydiag = self.current_names()
 
         jxnames = self.get_jx_names()
         jynames = self.get_jy_names()
+
+        basex = self.get_root_phys().extra_vars_basex
+        basey = self.get_root_phys().extra_vars_basey
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -305,6 +317,39 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         Eyname = var_s[1]
 
         loc = []
+        if self.use_4_components == "xx only":
+            for n in xdiag:   # Ex, -> Jx
+                if n in jxnames:
+                    loc.append((n, Exname, 1, 1))
+            for n in xdiag:   # Jx -> Ex
+                if n in jxnames:
+                    loc.append((Exname, n, 1, 1))
+
+        else:
+            for n in xdiag:   # Jx
+                if n in jxnames:
+                    if n.startswith(basex+"u"):
+                        loc.append((n, Exname, 1, 1))
+                        loc.append((n, Eyname, 1, 1))
+                        loc.append((Exname, n, 1, 1))
+                    else:
+                        loc.append((n, Exname, 1, 1))
+                        loc.append((Exname, n, 1, 1))
+                        loc.append((Eyname, n, 1, 1))
+            for n in ydiag:   # Jy
+                if n in jynames:
+                    if n.startswith(basey+"u"):
+                        loc.append((n, Exname, 1, 1))
+                        loc.append((n, Eyname, 1, 1))
+                        loc.append((Eyname, n, 1, 1))
+                    else:
+                        loc.append((n, Eyname, 1, 1))
+                        loc.append((Exname, n, 1, 1))
+                        loc.append((Eyname, n, 1, 1))
+
+        return loc
+
+        '''
         for n in xdiag:   # Ex -> Jx
             if n in jxnames:
                 loc.append((n, Exname, 1, 1))
@@ -341,8 +386,8 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             for n in ygrad:   # Jy -> Ey
                 if n in jynames:
                     loc.append((Eyname, n, 1, 1))
-
         return loc
+        '''
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
@@ -352,9 +397,11 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         basex = self.get_root_phys().extra_vars_basex
         basey = self.get_root_phys().extra_vars_basey
 
-        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        # for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad)
 
-        for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad):
+        xdiag, ydiag = self.current_names()
+        for items in (xdiag, ydiag):
             if dep_var in items:
                 idx = items.index(dep_var)
                 if idx >= len(items)//2:
@@ -404,8 +451,11 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
         fac = self._jitted_coeffs[0]["fac"]
 
-        xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
-        for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad):
+        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        # for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad):
+        xdiag, ydiag = self.current_names()
+        for items in (xdiag, ydiag):
+
             if r in items:
                 idx = items.index(r)
                 if idx >= len(items)//2:
@@ -442,15 +492,151 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                 ccoeff = slot["diag"] + slot["diagi"]
             else:
                 ccoeff = fac
-                '''
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-                '''
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
+        elif c == Eyname and r in xdiag:
+            # Ey -> Jx
+            if r.startswith(basex+"u"):
+                ccoeff = slot["xy"] + slot["xyi"]
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            if self.is_kyzero:
+                return
+
+            if r.startswith(basex+"u"):
+                ccoeff = slot["cross_grad"] + slot["cross_gradi"]
+            else:
+                ccoeff = fac
+
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
+
+        elif c == Exname and r in ydiag:
+            # Ex -> Jy
+            if r.startswith(basey+"u"):
+                ccoeff = -slot["xy"] - slot["xyi"]
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            if self.is_kyzero:
+                return
+
+            if r.startswith(basey+"u"):
+                ccoeff = slot["cross_grad"] + slot["cross_gradi"]
+            else:
+                ccoeff = fac
+
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
+
+        elif c == Eyname and r in ydiag:
+            # Ey -> Jy
+            if r.startswith(basey+"u"):
+                ccoeff = slot["diag"] + slot["diagi"]
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            if r.startswith(basey+"u"):
+                ccoeff = slot["diffusion"] + slot["diffusioni"]
+            else:
+                ccoeff = fac
+
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+
+        #
+        #    off-diag columns
+        #
+        elif r == Exname and c in xdiag:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+            if not c.startswith(basex+"u"):
+                ccoeff = (slot["diag"] - slot["diagi"]).conj()
+                # ccoeff = (slot["diag"].conj()*fac)   #.conj()
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+        elif r == Eyname and c in xdiag:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+
+            # Ey -> Jx
+            if not c.startswith(basex+"u"):
+                ccoeff = (slot["xy"] - slot["xyi"]).conj()
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            if self.is_kyzero:
+                return
+
+            if not c.startswith(basex+"u"):
+                ccoeff = (slot["cross_grad"] - slot["cross_gradi"]).conj()
+            else:
+                ccoeff = fac
+
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
+
+        elif r == Exname and c in ydiag:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+
+            # Ex -> Jy
+            if not c.startswith(basey+"u"):
+                ccoeff = (-slot["xy"] + slot["xyi"]).conj()
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            if self.is_kyzero:
+                return
+
+            if not c.startswith(basey+"u"):
+                ccoeff = (slot["cross_grad"] - slot["cross_gradi"]).conj()
+            else:
+                ccoeff = fac
+
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
+
+        elif r == Eyname and c in ydiag:
+            if self.debug_option == 'skip_iwJ':
+                dprint1("!!!!! skipping counting hot current contribution in EM1D")
+                return
+
+            # Ey -> Jy
+            if not c.startswith(basey+"u"):
+                ccoeff = (slot["diag"] - slot["diagi"]).conj()
+            else:
+                ccoeff = fac
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
+
+            if not c.startswith(basey+"u"):
+                ccoeff = (slot["diffusion"] - slot["diffusioni"]).conj()
+            else:
+                ccoeff = fac
+
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
+
+        '''
         elif c == Exname and r in ycross:
             # Ex -> Jy
             if r.startswith(basey+"u"):
@@ -497,27 +683,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
-        #
-        #    off-diag columns
-        #
-        elif r == Exname and c in xdiag:
-            if self.debug_option == 'skip_iwJ':
-                dprint1("!!!!! skipping counting hot current contribution in EM1D")
-                return
-            if not c.startswith(basex+"u"):
-                ccoeff = (slot["diag"] - slot["diagi"]).conj()
-                # ccoeff = (slot["diag"].conj()*fac)   #.conj()
-            else:
-                ccoeff = fac
-                '''
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-                '''
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
+            
         elif r == Exname and c in ycross:
             if self.debug_option == 'skip_iwJ':
                 dprint1("!!!!! skipping counting hot current contribution in EM1D")
@@ -576,3 +742,4 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
+        '''
