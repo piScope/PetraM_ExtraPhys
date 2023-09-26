@@ -411,9 +411,9 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
         if idx != 0:
             message = "Add diffusion and mass integrator contribution"
-
-            kappa = coeffs["kappa"]
-            self.add_integrator(engine, 'diffusion', -kappa, a.AddDomainIntegrator,
+            if real:
+                mone = mfem.ConstantCoefficient(-1.0)
+                self.add_integrator(engine, 'diffusion', mone, a.AddDomainIntegrator,
                                 mfem.DiffusionIntegrator)
             if dep_var.startswith(basex+"u") or dep_var.startswith(basey+"u"):
                 dd = coeffs["dterms"][idx-1]
