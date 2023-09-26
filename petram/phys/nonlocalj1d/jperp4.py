@@ -510,7 +510,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if r.startswith(basex+"u"):
                 ccoeff = slot["cross_grad"] + slot["cross_gradi"]
             else:
-                ccoeff = fac
+                return
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
@@ -530,7 +530,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if r.startswith(basey+"u"):
                 ccoeff = slot["cross_grad"] + slot["cross_gradi"]
             else:
-                ccoeff = fac
+                return
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
@@ -547,7 +547,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if r.startswith(basey+"u"):
                 ccoeff = slot["diffusion"] + slot["diffusioni"]
             else:
-                ccoeff = fac
+                return
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
@@ -586,7 +586,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basex+"u"):
                 ccoeff = (slot["cross_grad"] - slot["cross_gradi"]).conj()
             else:
-                ccoeff = fac
+                return
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
@@ -610,7 +610,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basey+"u"):
                 ccoeff = (slot["cross_grad"] - slot["cross_gradi"]).conj()
             else:
-                ccoeff = fac
+                return
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
@@ -631,115 +631,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basey+"u"):
                 ccoeff = (slot["diffusion"] - slot["diffusioni"]).conj()
             else:
-                ccoeff = fac
+                return
 
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedGradGradIntegrator)
-
-        '''
-        elif c == Exname and r in ycross:
-            # Ex -> Jy
-            if r.startswith(basey+"u"):
-                ccoeff = -slot["xy"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
-        elif c == Eyname and r in xcross:
-            # Ey -> Jx
-            if r.startswith(basex+"u"):
-                ccoeff = slot["xy"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
-        elif c == Eyname and r in ydiag:
-            # Ey -> Jy
-            if r.startswith(basey+"u"):
-                ccoeff = slot["diag"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-        elif c == Eyname and r in ygrad:
-            if r.startswith(basey+"u"):
-                ccoeff = slot["diffusion"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarWeakDerivativeIntegrator)
-            
-        elif r == Exname and c in ycross:
-            if self.debug_option == 'skip_iwJ':
-                dprint1("!!!!! skipping counting hot current contribution in EM1D")
-                return
-            if not c.startswith(basey+"u"):
-                ccoeff = -slot["xy"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
-        elif r == Eyname and c in xcross:
-            if self.debug_option == 'skip_iwJ':
-                dprint1("!!!!! skipping counting hot current contribution in EM1D")
-                return
-            if not c.startswith(basex+"u"):
-                ccoeff = slot["xy"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
-        elif r == Eyname and c in ydiag:
-            if self.debug_option == 'skip_iwJ':
-                dprint1("!!!!! skipping counting hot current contribution in EM1D")
-                return
-            if not c.startswith(basey+"u"):
-                ccoeff = slot["diag"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-        elif r == Eyname and c in ygrad:
-            if self.debug_option == 'skip_iwJ':
-                dprint1("!!!!! skipping counting hot current contribution in EM1D")
-                return
-            if not c.startswith(basey+"u"):
-                ccoeff = slot["diffusion"]*fac
-            else:
-                if not real:
-                    return
-                else:
-                    ccoeff = mfem.ConstantCoefficient(1.0)
-
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator, mfem.MixedScalarDerivativeIntegrator)
-        '''
