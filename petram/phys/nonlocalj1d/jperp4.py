@@ -118,28 +118,10 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return int(self._nperpterms)
 
     def get_jx_names(self):
-        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
-        #ky = self.get_ky()
-        xdiag, ydiag = self.current_names()
+        xdiag, _ydiag = self.current_names()
         return xdiag
-        '''
-        if self.use_4_components == "xx only":
-            if ky == 0:
-                return xdiag
-            else:
-                return xdiag + xgrad
-
-        else:
-            if ky == 0:
-                return xdiag + xcross
-            else:
-                return xdiag + xcross + xgrad
-        '''
 
     def get_jy_names(self):
-        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
-        #ky = self.get_ky()
-
         xdiag, ydiag = self.current_names()
 
         if self.use_4_components == "xx only":
@@ -171,25 +153,6 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                  [basey + "v" + self.name() + str(i+1)
                   for i in range(self._count_perp_terms())])
         return xdiag, ydiag
-        '''
-        xcross = ([basex + "u" + self.name() + "c" + str(i+1)
-                   for i in range(self._count_perp_terms())] +
-                  [basex + "v" + self.name() + "c" + str(i+1)
-                   for i in range(self._count_perp_terms())])
-        ycross = ([basey + "u" + self.name() + "c" + str(i+1)
-                   for i in range(self._count_perp_terms())] +
-                  [basey + "v" + self.name() + "c" + str(i+1)
-                   for i in range(self._count_perp_terms())])
-        xgrad = ([basex + "u" + self.name() + "g" + str(i+1)
-                  for i in range(self._count_perp_terms())] +
-                 [basex + "v" + self.name() + "g" + str(i+1)
-                  for i in range(self._count_perp_terms())])
-        ygrad = ([basey + "u" + self.name() + "g" + str(i+1)
-                  for i in range(self._count_perp_terms())] +
-                 [basey + "v" + self.name() + "g" + str(i+1)
-                  for i in range(self._count_perp_terms())])
-        return xdiag, xcross, xgrad, ydiag, ycross, ygrad
-        '''
 
     @property
     def jited_coeff(self):
@@ -348,46 +311,6 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                         loc.append((Eyname, n, 1, 1))
 
         return loc
-
-        '''
-        for n in xdiag:   # Ex -> Jx
-            if n in jxnames:
-                loc.append((n, Exname, 1, 1))
-        for n in xcross:   # Ey -> Jx
-            if n in jxnames:
-                loc.append((n, Eyname, 1, 1))
-        for n in xdiag + xcross:   # Jx -> Ex
-            if n in jxnames:
-                loc.append((Exname, n, 1, 1))
-
-        for n in ycross:    # Ex -> Jy
-            if n in jynames:
-                loc.append((n, Exname, 1, 1))
-        for n in ydiag:    # Ey -> Jy
-            if n in jynames:
-                loc.append((n, Eyname, 1, 1))
-        for n in ydiag + ycross:    # Jy -> Ey
-            if n in jynames:
-                loc.append((Eyname, n, 1, 1))
-
-        if self.is_kyzero:
-            for n in xgrad:   # Ey -> Jx (gradient)
-                if n in jxnames:
-                    loc.append((n, Eyname, 1, 1))
-            for n in ygrad:   # Ex -> Jy (gradient)
-                if n in jynames:
-                    loc.append((n, Exname, 1, 1))
-            for n in ygrad:   # Ey -> Jy  (gradient)
-                if n in jynames:
-                    loc.append((n, Eyname, 1, 1))
-            for n in xgrad:   # Jx -> Ex
-                if n in jxnames:
-                    loc.append((Exname, n, 1, 1))
-            for n in ygrad:   # Jy -> Ey
-                if n in jynames:
-                    loc.append((Eyname, n, 1, 1))
-        return loc
-        '''
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
