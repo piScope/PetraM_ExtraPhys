@@ -46,6 +46,12 @@ class NonlocalJ2D_BaseDomain(Domain, Phys):
     def count_z_terms(self):
         return 0
 
+    def has_eperp(self):
+        return 0
+
+    def has_epara(self):
+        return 0
+
     def has_jxy(self):
         return 0
 
@@ -198,6 +204,22 @@ class NonlocalJ2D(PhysModule):
                        if hasattr(x, "count_z_terms")])
 
     @property
+    def has_eperp(self):
+        if "Domain" not in self:
+            return 0
+        return int(np.any([x.has_eperp()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_eperp")]))
+
+    @property
+    def has_epara(self):
+        if "Domain" not in self:
+            return 0
+        return int(np.any([x.has_epara()
+                           for x in self["Domain"].walk_enabled()
+                           if hasattr(x, "has_epara")]))
+
+    @property
     def has_jxy(self):
         if "Domain" not in self:
             return 0
@@ -287,8 +309,12 @@ class NonlocalJ2D(PhysModule):
                 7: jy contribution
                 8: jx
                 9: jy
+               10: eperp
+               11: epara
         '''
         dep_var = self.kfes2depvar(kfes)
+        eperpname = self.get_root_phys().extra_vars_eperp
+        eparaname = self.get_root_phys().extra_vars_epara
         jxyname = self.get_root_phys().extra_vars_basexy
         jpname = self.get_root_phys().extra_vars_basep
         jzname = self.get_root_phys().extra_vars_basez
@@ -303,6 +329,10 @@ class NonlocalJ2D(PhysModule):
             return 8
         elif dep_var == jyname:
             return 9
+        elif dep_var == eperpname:
+            return 10
+        elif dep_var == eparaname:
+            return 11
         elif dep_var.startswith(jxyname):
             return 3
         elif dep_var.startswith(jpname):
@@ -318,6 +348,14 @@ class NonlocalJ2D(PhysModule):
     def dep_vars(self):
         base = self.dep_vars_base_txt
         ret = []
+
+        if self.has_eperp:
+            basename = self.extra_vars_eperp
+            ret.append(basename)
+
+        if self.has_epara:
+            basename = self.extra_vars_epara
+            ret.append(basename)
 
         if self.has_jxy:
             basename = self.extra_vars_basexy
@@ -367,6 +405,18 @@ class NonlocalJ2D(PhysModule):
     @property
     def dep_vars0(self):
         return self.dep_vars
+
+    @property
+    def extra_vars_eperp(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "eperp"
+        return basename
+
+    @property
+    def extra_vars_epara(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "epara"
+        return basename
 
     @property
     def extra_vars_basexy(self):
@@ -428,6 +478,8 @@ class NonlocalJ2D(PhysModule):
     def get_fec(self):
         v = self.dep_vars
 
+        eperpname = self.get_root_phys().extra_vars_eperp
+        eparaname = self.get_root_phys().extra_vars_epara
         jxyname = self.get_root_phys().extra_vars_basexy
         jpname = self.get_root_phys().extra_vars_basep
         jxname = self.get_root_phys().extra_vars_basex
@@ -435,6 +487,7 @@ class NonlocalJ2D(PhysModule):
         jzname = self.get_root_phys().extra_vars_basez
 
         fecs = []
+
         for vv in v:
             if vv.startswith(jxyname):
                 if self.use_nd:
@@ -447,7 +500,13 @@ class NonlocalJ2D(PhysModule):
                 fecs.append((vv, 'H1_FECollection'))
                 continue
 
-            if vv == jxname:
+            if vv == eperpname:
+                fecs.append((vv, 'ND_FECollection'))
+
+            elif vv == eparaname:
+                fecs.append((vv, 'H1_FECollection'))
+
+            elif vv == jxname:
                 fecs.append((vv, 'H1_FECollection'))
 
             elif self.use_h1 and vv.startswith(jxname):
@@ -496,6 +555,12 @@ class NonlocalJ2D(PhysModule):
             return self.order
 
         elif flag == 9:  # jy
+            return self.order
+
+        elif flag == 10:  # e_perp
+            return self.order
+
+        elif flag == 11:  # e_para
             return self.order
 
     def postprocess_after_add(self, engine):
@@ -623,8 +688,9 @@ class NonlocalJ2D(PhysModule):
     def get_possible_domain(self):
         from petram.phys.nonlocalj2d.jhot import NonlocalJ2D_Jhot
         from petram.phys.nonlocalj2d.jxxyy import NonlocalJ2D_Jxxyy
+        from petram.phys.nonlocalj2d.jxxyy2 import NonlocalJ2D_Jxxyy2
 
-        doms = [NonlocalJ2D_Jhot, NonlocalJ2D_Jxxyy, ]
+        doms = [NonlocalJ2D_Jhot, NonlocalJ2D_Jxxyy, NonlocalJ2D_Jxxyy2]
         doms.extend(super(NonlocalJ2D, self).get_possible_domain())
 
         return doms
