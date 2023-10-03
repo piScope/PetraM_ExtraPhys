@@ -407,6 +407,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
         facm = self._jitted_coeffs[0]["facm"]
         U = self._jitted_coeffs[0]["U"]
         Ut = self._jitted_coeffs[0]["Ut"]
+        U21 = self._jitted_coeffs[0]["U21"]
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -437,16 +438,25 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             ut_22 = Ut[[0, 1], [0, 1]]
 
             if c == Exyname:
-                ccoeff = u_22*(slot["diag"]*facp)
+                #ccoeff = u_22*(slot["diag"]*facp)
+                ccoeff = U21*(slot["diag"]*facp)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator,  mfem.MixedVectorMassIntegrator)
 
             else:
-                ccoeff = ut_22*(slot["diag"]*facm)
+                #ccoeff = ut_22*(slot["diag"]*facm)
+                ccoeff = U21*(slot["diag"]*facm)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
 
         elif r == Ezname or c == Ezname:
+            if real:
+                dprint1("Add mixed cterm contribution(real)"  "r/c",
+                        r, c, is_trans)
+            else:
+                dprint1("Add mixed cterm contribution(imag)"  "r/c",
+                        r, c, is_trans)
+
             if r == Ezname:
                 idx = jxynames.index(c)
             else:
@@ -457,8 +467,8 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             else:
                 slot = self._jitted_coeffs[0]["cterms"][idx-1]
 
-            u_12 = U[[0, 1], 2]
-            ut_21 = Ut[2, [0, 1]]
+            #u_12 = U[[0, 1], 2]
+            #ut_21 = Ut[2, [0, 1]]
 
             if c == Ezname:
                 ccoeff = u_12*(slot["diag"]*facp)
