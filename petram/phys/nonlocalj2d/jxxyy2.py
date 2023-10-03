@@ -438,14 +438,12 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             ut_22 = Ut[[0, 1], [0, 1]]
 
             if c == Exyname:
-                #ccoeff = u_22*(slot["diag"]*facp)
-                ccoeff = U21*(slot["diag"]*facp)
+                ccoeff = u_22*(slot["diag"]*facp)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator,  mfem.MixedVectorMassIntegrator)
 
             else:
-                #ccoeff = ut_22*(slot["diag"]*facm)
-                ccoeff = U21*(slot["diag"]*facm)
+                ccoeff = ut_22*(slot["diag"]*facm)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator, mfem.MixedVectorMassIntegrator)
 
@@ -471,12 +469,12 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             #ut_21 = Ut[2, [0, 1]]
 
             if c == Ezname:
-                ccoeff = u_12*(slot["diag"]*facp)
+                ccoeff = U21*(slot["diag"]*facp)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator,  mfem.MixedVectorProductIntegrator)
 
             else:
-                ccoeff = ut_21*(slot["diag"]*facm)
+                ccoeff = U21*(slot["diag"]*facm)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator, mfem.MixedDotProductIntegrator)
 
