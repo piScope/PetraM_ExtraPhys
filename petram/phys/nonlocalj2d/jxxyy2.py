@@ -81,7 +81,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.subs_perp import jperp_terms
+        from petram.phys.common.nonlocalj_subs import jperp_terms
 
         if self._nmax_bk != nmax or self._kprmax_bk != kprmax:
             fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
@@ -182,7 +182,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.subs_perp import jperp_terms
+        from petram.phys.common.nonlocalj_subs import jperp_terms
         from petram.phys.nonlocalj2d.subs_xxyy2 import build_xxyy_coefficients
 
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
@@ -208,7 +208,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
         return v
 
     def plot_approx(self, evt):
-        from petram.phys.nonlocalj1d.subs_perp import plot_terms
+        from petram.phys.common.nonlocalj_subs import plot_terms
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
