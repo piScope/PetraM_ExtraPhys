@@ -61,7 +61,7 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(NonlocalJ2D_Jxxyy2, self).__init__(**kwargs)
+        super(NonlocalJ2D_Jxxyy3, self).__init__(**kwargs)
 
     def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -81,7 +81,7 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.subs_perp import jperp_terms
+        from petram.phys.common.nonlocalj_subs import jperp_terms
 
         if self._nmax_bk != nmax or self._kprmax_bk != kprmax:
             fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
@@ -153,8 +153,8 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.subs_perp import jperp_terms
-        from petram.phys.nonlocalj2d.subs_xxyy3 import build_xxyy_coefficients
+        from petram.phys.common.nonlocalj_subs import jperp_terms
+        from petram.phys.nonlocalj2d.subs_perp3 import build_perp_coefficients
 
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
                            mmin=mmin, mmax=mmin, ngrid=ngrid)
@@ -181,7 +181,7 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
         return v
 
     def plot_approx(self, evt):
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import plot_terms
+        from petram.phys.common.nonlocalj_subs import plot_terms
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -193,7 +193,7 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
                    ngrid=ngrid, pmax=pmax)
 
     def panel1_param(self):
-        panels = super(NonlocalJ2D_Jxxyy2, self).panel1_param()
+        panels = super(NonlocalJ2D_Jxxyy3, self).panel1_param()
         panels.extend([
             ["An", None, 1, {"values": [
                 "kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
@@ -214,14 +214,14 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
         return panels
 
     def get_panel1_value(self):
-        values = super(NonlocalJ2D_Jxxyy2, self).get_panel1_value()
+        values = super(NonlocalJ2D_Jxxyy3, self).get_panel1_value()
         values.extend([self.An_mode, self.use_4_components,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
         return values
 
     def import_panel1_value(self, v):
-        check = super(NonlocalJ2D_Jxxyy2, self).import_panel1_value(v)
+        check = super(NonlocalJ2D_Jxxyy3, self).import_panel1_value(v)
         self.An_mode = str(v[-8])
         self.use_4_components = str(v[-7])
         self.ra_nmax = int(v[-6])
@@ -381,7 +381,7 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
 
             ut_22 = Ut[[0, 1], [0, 1]]
 
-            if c.startswith(basex+"u"):
+            if c.startswith(basex+"v"):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
                 ccoeff = 1j*fac
@@ -422,7 +422,7 @@ class NonlocalJ2D_Jxxyy3(NonlocalJ2D_BaseDomain):
             else:
                 slot = self._jitted_coeffs[0]["cterms"][idx-1]
 
-            if c.startswith(basex+"u"):
+            if c.startswith(basex+"v"):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
                 ccoeff = 1j*fac

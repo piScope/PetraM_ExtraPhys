@@ -102,7 +102,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
+        from petram.phys.common.nonlocalj_subs import jperp_terms
 
         if (self._nmax_bk != nmax or self._kprmax_bk != kprmax or self._mmin_bk != mmin):
             fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2, mmin=mmin, mmax=mmin,
@@ -173,7 +173,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import jperp_terms
+        from petram.phys.common.nonlocalj_subs import jperp_terms
         from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp4 import build_perp4_coefficients
 
         # nmax +1 to use recurrent rules for the bessel functions.
@@ -200,7 +200,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return v
 
     def plot_approx(self, evt):
-        from petram.phys.nonlocalj1d.nonlocalj1d_subs_perp import plot_terms
+        from petram.phys.common.nonlocalj_subs import plot_terms
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax

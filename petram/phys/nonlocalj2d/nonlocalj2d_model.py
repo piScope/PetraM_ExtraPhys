@@ -689,7 +689,7 @@ class NonlocalJ2D(PhysModule):
         from petram.phys.nonlocalj2d.jhot import NonlocalJ2D_Jhot
         from petram.phys.nonlocalj2d.jxxyy import NonlocalJ2D_Jxxyy
         from petram.phys.nonlocalj2d.jxxyy2 import NonlocalJ2D_Jxxyy2
-        from petram.phys.nonlocalj2d.jxxyy3 import NonlocalJ2D_Jxxyy3
+        from petram.phys.nonlocalj2d.jperp3 import NonlocalJ2D_Jperp3
 
         doms = [NonlocalJ2D_Jhot, NonlocalJ2D_Jxxyy, NonlocalJ2D_Jxxyy2, NonlocalJ2D_Jxxyy3]
         doms.extend(super(NonlocalJ2D, self).get_possible_domain())
