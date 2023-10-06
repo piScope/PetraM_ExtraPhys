@@ -465,16 +465,18 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             else:
                 slot = self._jitted_coeffs[0]["cterms"][idx-1]
 
-            #u_12 = U[[0, 1], 2]
-            #ut_21 = Ut[2, [0, 1]]
+            u_12 = U[[0, 1], 2]
+            ut_21 = Ut[2, [0, 1]]
 
             if c == Ezname:
-                ccoeff = U21*(slot["diag"]*facp)
+                #ccoeff = U21*(slot["diag"]*facp)
+                ccoeff = u_12*(slot["diag"]*facp)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator,  mfem.MixedVectorProductIntegrator)
 
             else:
-                ccoeff = U21*(slot["diag"]*facm)
+                #ccoeff = U21*(slot["diag"]*facm)
+                ccoeff = ut_21*(slot["diag"]*facm)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator, mfem.MixedDotProductIntegrator)
 
