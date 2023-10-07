@@ -387,7 +387,7 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
             if c.startswith(basexy+"v"):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
-                ccoeff = 1j*fac
+                ccoeff = -1j*fac
 
             ccoeff2 = ut_22*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
@@ -428,7 +428,7 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
             if c.startswith(basexy+"v"):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
-                ccoeff = 1j*fac
+                ccoeff = -1j*fac
 
             ut_21 = Ut[2, [0, 1]]
             ccoeff2 = ut_21*ccoeff
