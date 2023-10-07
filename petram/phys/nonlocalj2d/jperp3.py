@@ -292,15 +292,15 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
             if idx != 0:
                 message = "Add curlcurl or divdiv + mass integrator contribution"
                 if real:
-                    mone = mfem.ConstantCoefficient(-1.0)
-                    self.add_integrator(engine, 'curlcurl', mone, a.AddDomainIntegrator,
+                    one = mfem.ConstantCoefficient(1.0)
+                    self.add_integrator(engine, 'curlcurl', one, a.AddDomainIntegrator,
                                         mfem.CurlCurlIntegrator)
 
                 if dep_var.startswith(basexy+"u"):
                     dd = self._jitted_coeffs["dterms"][idx-1]
                 else:
                     dd = self._jitted_coeffs["dterms"][idx-1].conj()
-                self.add_integrator(engine, 'mass', -dd, a.AddDomainIntegrator,
+                self.add_integrator(engine, 'mass', dd, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
 
             else:  # constant term contribution
@@ -312,8 +312,8 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
         elif dep_var in pudiag+pvdiag:
             message = "Add mass integrator contribution (jp)"
             if real:  # -1
-                mone = mfem.ConstantCoefficient(-1.0)
-                self.add_integrator(engine, '-1', mone, a.AddDomainIntegrator,
+                one = mfem.ConstantCoefficient(1.0)
+                self.add_integrator(engine, '1', one, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
         else:
             assert False, "should not come here:" + str(dep_var)
@@ -442,13 +442,13 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
 
                 if c in (xyudiag + xyvdiag) and r in (pudiag + pvdiag):
                     # div
-                    one = mfem.ConstantCoefficient(1.0)
+                    one = mfem.ConstantCoefficient(-1.0)
                     self.add_integrator(engine, 'div', one,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
 
                 elif r in (xyudiag + xyvdiag) and c in (pudiag + pvdiag):
                     # grad
-                    one = mfem.ConstantCoefficient(1.0)
+                    one = mfem.ConstantCoefficient(-1.0)
                     self.add_integrator(engine, 'grad', one,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
             else:

@@ -329,7 +329,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
                 kappa = coeffs["kappa"]
 
                 if self.use_nd:
-                    self.add_integrator(engine, 'curlcurl', -kappa, a.AddDomainIntegrator,
+                    self.add_integrator(engine, 'curlcurl', kappa, a.AddDomainIntegrator,
                                         mfem.CurlCurlIntegrator)
                 else:
                     self.add_integrator(engine, 'divdiv', -kappa, a.AddDomainIntegrator,
