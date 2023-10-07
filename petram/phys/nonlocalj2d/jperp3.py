@@ -292,8 +292,8 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
             if idx != 0:
                 message = "Add curlcurl or divdiv + mass integrator contribution"
                 if real:
-                    one = mfem.ConstantCoefficient(1.0)
-                    self.add_integrator(engine, 'curlcurl', one, a.AddDomainIntegrator,
+                    mone = mfem.ConstantCoefficient(-1.0)
+                    self.add_integrator(engine, 'curlcurl', mone, a.AddDomainIntegrator,
                                         mfem.CurlCurlIntegrator)
 
                 if dep_var.startswith(basexy+"u"):
@@ -442,13 +442,13 @@ class NonlocalJ2D_Jperp3(NonlocalJ2D_BaseDomain):
 
                 if c in (xyudiag + xyvdiag) and r in (pudiag + pvdiag):
                     # div
-                    one = mfem.ConstantCoefficient(-1.0)
-                    self.add_integrator(engine, 'div', one,
+                    mone = mfem.ConstantCoefficient(-1.0)
+                    self.add_integrator(engine, 'div', mone,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorWeakDivergenceIntegrator)
 
                 elif r in (xyudiag + xyvdiag) and c in (pudiag + pvdiag):
                     # grad
-                    one = mfem.ConstantCoefficient(-1.0)
+                    one = mfem.ConstantCoefficient(1.0)
                     self.add_integrator(engine, 'grad', one,
                                         mbf.AddDomainIntegrator, mfem.MixedVectorGradientIntegrator)
             else:
