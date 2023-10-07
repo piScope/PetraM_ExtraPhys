@@ -43,10 +43,10 @@ data = (('B', VtableElement('bext', type='array',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
-        ('frac_collisions', VtableElement('frac_collisions', type='float',
-                                          guilabel='alpha',
-                                          default="0.0",
-                                          tip="additional damping due to non-local current(sigma*Jhot)")),
+        ('tene', VtableElement('tene', type='array',
+                               guilabel='collisions (Te, ne)',
+                               default="10, 1e17",
+                               tip="electron density and temperature for collision")),
         ('kz', VtableElement('kz', type='float',
                              guilabel='kz',
                              default=0.,
@@ -73,7 +73,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, alpha, kz = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, tene, kz = self.vt.make_value_or_expression(
             self)
 
         nmax = self.ra_nmax
@@ -174,7 +174,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
         freq, omega = em2d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, alpha, kz = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, tene, kz = self.vt.make_value_or_expression(
             self)
 
         nmax = self.ra_nmax
@@ -190,7 +190,7 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
 
         self._jitted_coeffs = build_xxyy_coefficients(ind_vars, kz, omega, B, dens, temp,
                                                       mass, charge,
-                                                      alpha, fits,
+                                                      tene, fits,
                                                       self.An_mode,
                                                       self._global_ns, self._local_ns,)
 
