@@ -407,7 +407,6 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
         facm = self._jitted_coeffs[0]["facm"]
         U = self._jitted_coeffs[0]["U"]
         Ut = self._jitted_coeffs[0]["Ut"]
-        U21 = self._jitted_coeffs[0]["U21"]
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -469,13 +468,11 @@ class NonlocalJ2D_Jxxyy2(NonlocalJ2D_BaseDomain):
             ut_21 = Ut[2, [0, 1]]
 
             if c == Ezname:
-                #ccoeff = U21*(slot["diag"]*facp)
                 ccoeff = u_12*(slot["diag"]*facp)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator,  mfem.MixedVectorProductIntegrator)
 
             else:
-                #ccoeff = U21*(slot["diag"]*facm)
                 ccoeff = ut_21*(slot["diag"]*facm)
                 self.add_integrator(engine, 'cterm', ccoeff,
                                     mbf.AddDomainIntegrator, mfem.MixedDotProductIntegrator)
