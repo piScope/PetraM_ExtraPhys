@@ -541,7 +541,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
             else:
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
-            ccoeff = slot["rcurlcurlr"] + slot["rcurlcurlr"]
+            ccoeff = -(slot["rcurlcurlr"] + slot["rcurlcurli"])
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedCurlCurlIntegrator)
@@ -554,7 +554,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
             else:
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
-            ccoeff = (slot["rcurlcurlr"] - slot["rcurlcurlr"]).conj()
+            ccoeff = (slot["rcurlcurli"] - slot["rcurlcurlr"]).conj()
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedCurlCurlIntegrator)
