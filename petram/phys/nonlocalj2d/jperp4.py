@@ -97,12 +97,16 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         return int(self._nperpterms)
 
     def get_jxy_names(self):
-        xyudiag, xyvdiag, pudiag, pvdiag = self.current_names_xyp()
-        return xyudiag + xyvdiag
+        names = self.current_names_xyp()
+        # xyudiag, xyvdiag, pudiag, pvdiag,
+        #   xyrudiag, xyrvdiag, prudiag, prvdiag = names
+        return names[0] + names[1] + names[4] + names[5]
 
     def get_jp_names(self):
-        xyudiag, xyvdiag, pudiag, pvdiag = self.current_names_xyp()
-        return pudiag + pvdiag
+        names = self.current_names_xyp()
+        # xyudiag, xyvdiag, pudiag, pvdiag,
+        #   xyrudiag, xyrvdiag, prudiag, prvdiag = names
+        return names[2] + names[3] + names[6] + names[7]
 
     def count_xy_terms(self):
         return len(self.get_jxy_names())
@@ -118,20 +122,31 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         basexy = self.get_root_phys().extra_vars_basexy
         basep = self.get_root_phys().extra_vars_basep
 
+        # xyu, xyv, pu, pv for terms using MassIntegrator
+        # xyru, xyrv, pru, prv for terms using CurlCurlIntegrator
+
         xyudiag = [basexy + "u" + self.name() + str(i+1)
                    for i in range(self._count_perp_terms())]
         xyvdiag = [basexy + "v" + self.name() + str(i+1)
                    for i in range(self._count_perp_terms())]
+        xyrudiag = [basexy + "ru" + self.name() + str(i+1)
+                    for i in range(self._count_perp_terms()+1)]
+        xyrvdiag = [basexy + "rv" + self.name() + str(i+1)
+                    for i in range(self._count_perp_terms()+1)]
         pudiag = [basep + "u" + self.name() + str(i+2)
                   for i in range(self._count_perp_terms()-1)]
         pvdiag = [basep + "v" + self.name() + str(i+2)
                   for i in range(self._count_perp_terms()-1)]
+        prudiag = [basep + "ru" + self.name() + str(i+2)
+                   for i in range(self._count_perp_terms()-1)]
+        prvdiag = [basep + "rv" + self.name() + str(i+2)
+                   for i in range(self._count_perp_terms()-1)]
 
-        return xyudiag, xyvdiag, pudiag, pvdiag
+        return xyudiag, xyvdiag, pudiag, pvdiag, xyrudiag, xyrvdiag, prudiag, prvdiag
 
     def current_names(self):
-        xyudiag, xyvdiag, pudiag, pvdiag = self.current_names_xyp()
-        return xyudiag, xyvdiag, pudiag, pvdiag
+        names = self.current_names_xyp()
+        return names
 
     @property
     def jited_coeff(self):
@@ -246,7 +261,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
-        xyudiag, xyvdiag, pudiag, pvdiag = self.current_names()
+        xyudiag, xyvdiag, pudiag, pvdiag, xyrudiag, xyrvdiag, prudiag, prvdiag = self.current_names()
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -276,7 +291,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
-        xyudiag, xyvdiag, pudiag, pvdiag = self.current_names()
+        xyudiag, xyvdiag, pudiag, pvdiag, xyrudiag, xyrvdiag, prudiag, prvdiag = self.current_names()
         basexy = self.get_root_phys().extra_vars_basexy
 
         # jxy[0] -- constant contribution
@@ -288,7 +303,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         else:
             idx = 0  # not used
 
-        if dep_var in xyudiag + xyvdiag:
+        if dep_var in xyudiag + xyvdiag + xyrudiag[:-1] + xyrvdiag[:-1]:
             if idx != 0:
                 message = "Add curlcurl or divdiv + mass integrator contribution"
                 if real:
@@ -309,9 +324,15 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                 self.add_integrator(engine, 'mass', -dd0, a.AddDomainIntegrator,
                                     mfem.VectorFEMassIntegrator)
 
-        elif dep_var in pudiag+pvdiag:
+        elif dep_var in xyrudiag[-1:] + xyrvdiag[-1:]:
+            message = "Add mass integrator contribution for RE and RJ"
+            if real:  # 1
+                one = mfem.ConstantCoefficient(1.0)
+                self.add_integrator(engine, '1', one, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+        elif dep_var in pudiag+pvdiag+prudiag+prvdiag:
             message = "Add mass integrator contribution (jp)"
-            if real:  # -1
+            if real:  # 1
                 one = mfem.ConstantCoefficient(1.0)
                 self.add_integrator(engine, '1', one, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
@@ -329,7 +350,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         basexy = self.get_root_phys().extra_vars_basexy
         basep = self.get_root_phys().extra_vars_basep
 
-        xyudiag, xyvdiag, pudiag, pvdiag = self.current_names()
+        xyudiag, xyvdiag, pudiag, pvdiag, xyrudiag, xyrvdiag, prudiag, prvdiag = self.current_names()
 
         fac = self._jitted_coeffs["fac"]
         U = self._jitted_coeffs["U"]
@@ -452,19 +473,117 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
 
+        elif c == Exyname and r == xyrudiag[-1]:
+            u_22 = U[[0, 1], [0, 1]]
+            ccoeff2 = -R1.dot(u_22)
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif c == Ezname and r == xyrudiag[-1]:
+            u_12 = U[[0, 1], 2]
+            ccoeff2 = -R1.dot(u_12)
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif r == Exyname and c == xyrvdiag[-1]:
+            ccoeff = -1j*fac
+            ut_22 = Ut[[0, 1], [0, 1]]
+            ccoeff2 = R1.dot(ut_22)*ccoeff
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif r == Ezname and c == xyrvdiag[-1]:
+            ccoeff = -1j*fac
+            ut_12 = Ut[2, [0, 1]]
+            ccoeff2 = R1.dot(ut_12)*ccoeff
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif c == Exyname and r in xyrudiag[:-1]:
+            ccoeff = 1j*fac
+            u_22 = Ut[[0, 1], [0, 1]]
+            ccoeff2 = u_22.dot(R1).ccoeff
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif c == Ezname and r in xyrudiag[:-1]:
+            ccoeff = 1j*fac
+            u_12 = U[[0, 1], 2]
+            ccoeff2 = R1.dot(u_12).ccoeff
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif r == Exyname and c == xyrudiag[-1]:
+            ut_22 = Ut[[0, 1], [0, 1]]
+            ccoeff2 = -ut_22.dot(R1)
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif r == Ezname and c == xyrudiag[-1]:
+            ut_12 = Ut[2, [0, 1]]
+            ccoeff2 = -ut_12.dot(R1)
+            self.add_integrator(engine, 'cterm', ccoeff2,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorMassIntegrator)
+
+        elif r in xyrudiag[:-1] and c == xyrudiag[-1]:
+            #curl-curl (Lp)
+            idx = xyrudiag.index(r)
+            if idx == 0:
+                slot = self._jitted_coeffs["c0"]
+            else:
+                slot = self._jitted_coeffs["cterms"][idx-1]
+
+            ccoeff = slot["rcurlcurlr"] + slot["rcurlcurlr"]
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedCurlCurlIntegrator)
+
+        elif r == xyrvdiag[-1] and c in xyrvdiag[:-1]:
+            #curl-curl (Lm)
+            idx = xyrvdiag.index(c)
+            if idx == 0:
+                slot = self._jitted_coeffs["c0"]
+            else:
+                slot = self._jitted_coeffs["cterms"][idx-1]
+
+            ccoeff = (slot["rcurlcurlr"] - slot["rcurlcurlr"]).conj()
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedCurlCurlIntegrator)
+
         else:
             if real:
                 dprint1(
                     "Add mixed vector laplacian contribution(real)"  "r/c", r, c, is_trans)
 
-                if c in (xyudiag + xyvdiag) and r in (pudiag + pvdiag):
+                if c in xyudiag + xyvdiag and r in pudiag + pvdiag:
+                    # div
+                    mone = mfem.ConstantCoefficient(-1.0)
+                    self.add_integrator(engine, 'div', mone,
+                                        mbf.AddDomainIntegrator,
+                                        mfem.MixedVectorWeakDivergenceIntegrator)
+                elif c in xyrudiag[:-1] + xyrvdiag[:-1] and r in prudiag + prvdiag:
                     # div
                     mone = mfem.ConstantCoefficient(-1.0)
                     self.add_integrator(engine, 'div', mone,
                                         mbf.AddDomainIntegrator,
                                         mfem.MixedVectorWeakDivergenceIntegrator)
 
-                elif r in (xyudiag + xyvdiag) and c in (pudiag + pvdiag):
+                elif r in xyudiag + xyvdiag and c in pudiag + pvdiag:
+                    # grad
+                    one = mfem.ConstantCoefficient(1.0)
+                    self.add_integrator(engine, 'grad', one,
+                                        mbf.AddDomainIntegrator,
+                                        mfem.MixedVectorGradientIntegrator)
+                elif r in xyrudiag[:-1] + xyrvdiag[:-1] and c in prudiag + prvdiag:
                     # grad
                     one = mfem.ConstantCoefficient(1.0)
                     self.add_integrator(engine, 'grad', one,
