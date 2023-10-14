@@ -58,6 +58,8 @@ data = (('B', VtableElement('bext', type='array',
                              no_func=True,
                              tip="wave number` in the z direction")),)
 
+anbn_options = ("kpara->0 + col.", "kpara from kz")
+
 
 class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
     has_essential = False
@@ -109,7 +111,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             self._nmax_bk = nmax
             self._kprmax_bk = kprmax
             self._mmin_bk = mmin
-            #self._use_4_components = self.use_4_components
+            # self._use_4_components = self.use_4_components
 
         return int(self._nperpterms)
 
@@ -190,7 +192,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         v['ra_mmin'] = 5
         v['ra_ngrid'] = 300
         v['ra_pmax'] = 15
-        v['An_mode'] = "kpara->0"
+        v['An_mode'] = "kpara->0 + col."
         v['use_4_components'] = "xx-xy-yx-yy"
         v['debug_option'] = ''
         return v
@@ -209,7 +211,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
     def panel1_param(self):
         panels = super(NonlocalJ1D_Jperp4, self).panel1_param()
-        panels.extend([["An", None, 1, {"values": ["kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
+        panels.extend([["An", None, 1, {"values": ["kpara->0 + col.", "kpara from kz"]}],
                        ["Components", None, 1, {
                            "values": ["xx only", "xx-xy-yx-yy"]}],
                        ["cyclotron harms.", None, 400, {}],
@@ -228,6 +230,9 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
     def get_panel1_value(self):
         values = super(NonlocalJ1D_Jperp4, self).get_panel1_value()
+
+        if self.An_mode not in anbn_options:
+            self.An_mode = anbn_options[0]
         values.extend([self.An_mode, self.use_4_components,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
@@ -244,7 +249,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         self.ra_mmin = int(v[-4])
         self.ra_ngrid = int(v[-3])
         self.ra_pmax = float(v[-2])
-        #self.debug_option = str(v[-1])
+        # self.debug_option = str(v[-1])
         return True
 
     def has_bf_contribution(self, kfes):
@@ -260,7 +265,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
-        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        # xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
         xdiag, ydiag = self.current_names()
 
         jxnames = self.get_jx_names()
@@ -316,7 +321,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         basex = self.get_root_phys().extra_vars_basex
         basey = self.get_root_phys().extra_vars_basey
 
-        #xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
+        # xdiag, xcross, xgrad, ydiag, ycross, ygrad = self.current_names()
         # for items in (xdiag, xcross, xgrad, ydiag, ycross, ygrad)
 
         xdiag, ydiag = self.current_names()
@@ -454,13 +459,14 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
         elif c == Eyname and r in ydiag:
             # Ey -> Jy
+
             if r.startswith(basey+"u"):
                 ccoeff = slot["diag"] + slot["diagi"]
             else:
                 ccoeff = 1j*fac
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
+            # return
             if r.startswith(basey+"u"):
                 ccoeff = slot["diffusion"] + slot["diffusioni"]
             else:
@@ -541,10 +547,10 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basey+"u"):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
-                ccoeff = 1j*fac
+                ccoeff = -1j*fac
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
-
+            # return
             if not c.startswith(basey+"u"):
                 ccoeff = (slot["diffusion"] - slot["diffusioni"]).conj()
             else:
