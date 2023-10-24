@@ -298,6 +298,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         var_s = mfem_physroot[paired_model].dep_vars
         Exname = var_s[0]
         Eyname = var_s[1]
+        Ezname = var_s[2]
 
         loc = []
         if self.use_4_components == "xx only":
@@ -308,6 +309,13 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                 if n in jxnames:
                     loc.append((Exname, n, 1, 1))
         elif self.use_4_components == "zz":
+            for n in zdiag:   # Ez, -> Jz
+                if n in jznames:
+                    loc.append((n, Ezname, 1, 1))
+            for n in zdiag:   # Jz -> Ez
+                if n in jznames:
+                    loc.append((Ezname, n, 1, 1))
+
         else:
             for n in xdiag:   # Jx
                 if n in jxnames:
