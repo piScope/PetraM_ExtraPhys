@@ -513,7 +513,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
                 # ccoeff = (slot["diag"].conj()*fac)   #.conj()
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
@@ -526,7 +526,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basex+"u"):
                 ccoeff = (slot["xy"] - slot["xyi"]).conj()
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
@@ -550,7 +550,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basey+"u"):
                 ccoeff = (-slot["xy"] + slot["xyi"]).conj()
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
@@ -574,7 +574,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             if not c.startswith(basey+"u"):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
             # return
