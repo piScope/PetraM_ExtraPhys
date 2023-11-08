@@ -417,7 +417,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                 ccoeff2 = ut_22*ccoeff_d - ut_22.dot(R2)*ccoeff_c  # r2^t = -r2
 
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
                 ccoeff2 = ut_22*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
@@ -466,7 +466,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                 ccoeff_c = (slot["xy"] - slot["xyi"]).conj()
                 ccoeff2 = ut_21*ccoeff_d + R2.dot(ut_21)*ccoeff_c
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
                 ccoeff2 = ut_21*ccoeff
 
             self.add_integrator(engine, 'cterm', ccoeff2,
@@ -488,7 +488,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mfem.MixedVectorMassIntegrator)
 
         elif r == Exyname and c == xyrvdiag[-1]:
-            ccoeff = -1j*fac
+            ccoeff = (1j*fac).conj()
             ut_22 = Ut[[0, 1], [0, 1]]
             ccoeff2 = R1.dot(ut_22)*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
@@ -496,7 +496,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mfem.MixedVectorMassIntegrator)
 
         elif r == Ezname and c == xyrvdiag[-1]:
-            ccoeff = -1j*fac
+            ccoeff = (1j*fac).conj()
             ut_12 = Ut[2, [0, 1]]
             ccoeff2 = R1.dot(ut_12)*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
