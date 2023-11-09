@@ -329,7 +329,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
             if real:  # 1
                 one = mfem.ConstantCoefficient(1.0)
                 self.add_integrator(engine, '1', one, a.AddDomainIntegrator,
-                                    mfem.MassIntegrator)
+                                    mfem.VectorFEMassIntegrator)
         elif dep_var in pudiag+pvdiag+prudiag+prvdiag:
             message = "Add mass integrator contribution (jp)"
             if real:  # 1
