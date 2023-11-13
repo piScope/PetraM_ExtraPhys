@@ -535,21 +535,21 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r == Exyname and c == xyrudiag[-1]:
+        elif r == Exyname and c in xyrudiag[-1:]:
             ut_22 = Ut[[0, 1], [0, 1]]
             ccoeff2 = -ut_22.dot(R1)
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r == Ezname and c == xyrudiag[-1]:
+        elif r == Ezname and c in xyrudiag[-1:]:
             ut_12 = Ut[2, [0, 1]]
             ccoeff2 = -ut_12.dot(R1)
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r in xyrudiag[:-1] and c == xyrudiag[-1]:
+        elif r in xyrudiag[:-1] and c in xyrudiag[-1:]:
             #curl-curl (Lp)
             idx = xyrudiag.index(r)
             if idx == 0:
@@ -562,7 +562,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedCurlCurlIntegrator)
 
-        elif r == xyrvdiag[-1] and c in xyrvdiag[:-1]:
+        elif r in xyrvdiag[-1:] and c in xyrvdiag[:-1]:
             #curl-curl (Lm)
             idx = xyrvdiag.index(c)
             if idx == 0:
