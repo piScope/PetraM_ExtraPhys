@@ -330,13 +330,13 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             self)
 
         if idx != 0:
-            message = "Add curlcurl or divdiv + mass integrator contribution"
-            mat = self._jitted_coeffs["M_perp"]
+            message = "Add diffusion + mass integrator contribution"
+            mat = -self._jitted_coeffs["M_perp"]
             if real:
                 mat2 = -mat[[0, 1], [0, 1]]
                 self.add_integrator(engine, 'diffusion', mat2, a.AddDomainIntegrator,
                                     mfem.DiffusionIntegrator)
-                mat2 = -kz*kz*mat[[2], [2]]
+                mat2 = (-kz**2)*mat[[2], [2]]
                 self.add_integrator(engine, 'mass', mat2, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
             else:
