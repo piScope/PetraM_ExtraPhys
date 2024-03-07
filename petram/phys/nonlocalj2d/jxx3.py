@@ -22,7 +22,7 @@ from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ2D_Jxxyy4')
+dprint1, dprint2, dprint3 = debug.init_dprints('NonlocalJ2D_Jxx3')
 
 if use_parallel:
     import mfem.par as mfem
@@ -372,6 +372,8 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
 
         fac = self._jitted_coeffs["fac"]
         M_perp = self._jitted_coeffs["M_perp"]
+        xvec = self._jitted_coeffs["xvec"]
+        yvec = self._jitted_coeffs["yvec"]
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -448,26 +450,33 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             else:
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
-            coeff2 = mfem.VectorArrayCoefficient(2)
             if umode:
                 ccoeff = 1j*fac.conj()
             else:
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
 
+            if dirc == 'x':
+                coeff2 = xvec*ccoeff
+            else:
+                coeff2 = yvec*ccoeff
+            '''
             if real:
                 mfem_coeff = ccoeff.get_real_coefficient()
             else:
                 mfem_coeff = ccoeff.get_imag_coefficient()
-
+                
+            coeff2 = mfem.VectorArrayCoefficient(2)
             if dirc == 'x':
-                coeff2.Set(0, mfem_coeff)
+                coeff2.Set(0, mfem_coeff)   
+                coeff2.Set(1, mfem.ConstantCoefficient(0.0))
             elif dirc == 'y':
+                coeff2.Set(0, mfem.ConstantCoefficient(0.0))                
                 coeff2.Set(1, mfem_coeff)
             else:
                 assert False, "should not come here"
 
             coeff2._link = ccoeff
-
+            '''
             self.add_integrator(engine, 'cterm', coeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
