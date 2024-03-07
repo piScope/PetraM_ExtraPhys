@@ -267,7 +267,9 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
-        names = self.current_names()
+        names = self.current_names_xyz()
+        xudiag, xvdiag, yudiag, yvdiag, zudiag, zvdiag = names
+        all_names = xudiag + xvdiag + yudiag + yvdiag + zudiag + zvdiag
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
@@ -276,7 +278,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
         Ezname = var_s[1]
 
         loc = []
-        for n in names:
+        for n in all_names:
             loc.append((n, Exyname, 1, 1))
             loc.append((n, Ezname, 1, 1))
             loc.append((Exyname, n, 1, 1))
@@ -319,18 +321,31 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
-        names = self.current_names()
-        idx, umode, _dirc = self.__get_dep_var_idx(dep_var, names)
+        names = self.current_names_xyz()
+        idx, umode, _dirc = self._get_dep_var_idx(dep_var, names)
 
         # jxyz[0] -- constant contribution
         # jxyz[1:] --- diffusion contribution
+        _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
+            self)
 
         if idx != 0:
             message = "Add curlcurl or divdiv + mass integrator contribution"
+            mat = -self._jitted_coeffs["M_perp"]
             if real:
-                mat = -self._jitted_coeffs["M_perp"]
-                self.add_integrator(engine, 'curlcurl', mat, a.AddDomainIntegrator,
+                mat2 = -mat[[0, 1], [0, 1]]
+                self.add_integrator(engine, 'diffusion', mat2, a.AddDomainIntegrator,
                                     mfem.DiffusionIntegrator)
+                mat2 = kz*kz*mat[[2], [2]]
+                self.add_integrator(engine, 'mass', mat2, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+            else:
+                mat2 = 1j*kz*mat[[2], [0, 1]]
+                self.add_integrator(engine, '12', mat2, a.AddDomainIntegrator,
+                                    mfem.MixedDirectionalDerivativeIntegrator)
+                mat2 = 1j*kz*mat[[0, 1], [2]]
+                self.add_integrator(engine, '21', mat2, a.AddDomainIntegrator,
+                                    mfem.MixedScalarWeakDivergenceIntegrator)
 
             if umode:
                 dterm = self._jitted_coeffs["dterms"][idx-1]
@@ -353,7 +368,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
     def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
                               real=True):
 
-        names = self.current_names()
+        names = self.current_names_xyz()
 
         fac = self._jitted_coeffs["fac"]
         M_perp = self._jitted_coeffs["M_perp"]
@@ -373,7 +388,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
                     r, c, is_trans)
 
         if c == Exyname:
-            idx, umode, dirc = self.__get_dep_var_idx(r, names)
+            idx, umode, dirc = self._get_dep_var_idx(r, names)
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
@@ -398,7 +413,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             return
 
         if c == Ezname:
-            idx, umode, dirc = self.__get_dep_var_idx(r, names)
+            idx, umode, dirc = self._get_dep_var_idx(r, names)
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
@@ -423,7 +438,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             return
 
         if r == Exyname:
-            idx, umode, dirc = self.__get_dep_var_idx(c, names)
+            idx, umode, dirc = self._get_dep_var_idx(c, names)
             if dirc == 'z':
                 return
 
@@ -438,19 +453,24 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             else:
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
 
-            if dirc == 'x':
-                coeff2.Set(0, ccoeff)
+            if real:
+                mfem_coeff = ccoeff.get_real_coefficient()
             else:
-                coeff2.Set(1, ccoeff)
+                mfem_coeff = ccoeff.get_imag_coefficient()
+
+            if dirc == 'x':
+                coeff2.Set(0, mfem_coeff)
+            else:
+                coeff2.Set(1, mfem_coeff)
 
             coeff2._link = ccoeff
 
-            self.add_integrator(engine, 'cterm', ccoeff2,
+            self.add_integrator(engine, 'cterm', coeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
         if r == Ezname:
-            idx, umode, dirc = self.__get_dep_var_idx(c, names)
+            idx, umode, dirc = self._get_dep_var_idx(c, names)
             if dirc != 'z':
                 return
 
