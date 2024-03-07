@@ -336,14 +336,14 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
                 mat2 = -mat[[0, 1], [0, 1]]
                 self.add_integrator(engine, 'diffusion', mat2, a.AddDomainIntegrator,
                                     mfem.DiffusionIntegrator)
-                mat2 = kz*kz*mat[[2], [2]]
+                mat2 = -kz*kz*mat[[2], [2]]
                 self.add_integrator(engine, 'mass', mat2, a.AddDomainIntegrator,
                                     mfem.MassIntegrator)
             else:
-                mat2 = 1j*kz*mat[[2], [0, 1]]
+                mat2 = -1j*kz*mat[[2], [0, 1]]
                 self.add_integrator(engine, '12', mat2, a.AddDomainIntegrator,
                                     mfem.MixedDirectionalDerivativeIntegrator)
-                mat2 = 1j*kz*mat[[0, 1], [2]]
+                mat2 = -1j*kz*mat[[0, 1], [2]]
                 self.add_integrator(engine, '21', mat2, a.AddDomainIntegrator,
                                     mfem.MixedScalarWeakDivergenceIntegrator)
 
