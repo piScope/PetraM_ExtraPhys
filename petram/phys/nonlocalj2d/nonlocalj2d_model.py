@@ -781,7 +781,7 @@ class NonlocalJ2D(PhysModule):
             if x.count_y_terms() > 0:
                 ynames.extend(x.get_jy_names())
 
-        if name in znames:
+        if name in ynames:
             add_scalar(v, name, suffix, ind_vars, solr, soli)
 
         # z
