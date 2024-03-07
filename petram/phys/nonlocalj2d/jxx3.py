@@ -387,8 +387,14 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             dprint1("Add mixed cterm contribution(imag)"  "r/c",
                     r, c, is_trans)
 
-        if c == Exyname:
+        if c == Exyname or c == Ezname:
             idx, umode, dirc = self._get_dep_var_idx(r, names)
+        elif r == Exyname or r == Ezname:
+            idx, umode, dirc = self._get_dep_var_idx(c, names)
+        else:
+            assert False, "Should not come here"
+
+        if c == Exyname:
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
@@ -413,7 +419,6 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             return
 
         if c == Ezname:
-            idx, umode, dirc = self._get_dep_var_idx(r, names)
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
@@ -437,11 +442,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
                                 mfem.MixedScalarMassIntegrator)
             return
 
-        if r == Exyname:
-            idx, umode, dirc = self._get_dep_var_idx(c, names)
-            if dirc == 'z':
-                return
-
+        if r == Exyname and dirc != 'z':
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
@@ -460,20 +461,19 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
 
             if dirc == 'x':
                 coeff2.Set(0, mfem_coeff)
-            else:
+            elif dirc == 'y':
                 coeff2.Set(1, mfem_coeff)
+            else:
+                assert False, "should not come here"
 
             coeff2._link = ccoeff
 
             self.add_integrator(engine, 'cterm', coeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
+            return
 
-        if r == Ezname:
-            idx, umode, dirc = self._get_dep_var_idx(c, names)
-            if dirc != 'z':
-                return
-
+        if r == Ezname and dirc == 'z':
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
@@ -487,5 +487,6 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
+            return
 
         dprint1("No mixed-contribution"  "r/c", r, c, is_trans)
