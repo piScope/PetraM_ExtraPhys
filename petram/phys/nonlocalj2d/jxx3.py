@@ -455,7 +455,7 @@ class NonlocalJ2D_Jxx3(NonlocalJ2D_BaseDomain):
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                ccoeff = 1j*fac.conj()
+                ccoeff = (1j*fac).conj()
             else:
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
 
