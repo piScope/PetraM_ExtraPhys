@@ -182,10 +182,6 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                                                        self.An_mode, self.use_4_components,
                                                        self._global_ns, self._local_ns,)
 
-    def compile_coeffs_for_evaluator(self, *kargs):
-        # don't compile coefficients for visualization
-        pass
-
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
         Phys.attribute_set(self, v)
