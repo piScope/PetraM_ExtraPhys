@@ -228,6 +228,8 @@ class NonlocalJ1D(PhysModule):
             ret.append(basename)
 
         for x in self["Domain"].walk_enabled():
+            if not hasattr(x, "count_x_terms"):
+                continue
             if x.count_x_terms() > 0:
                 ret.extend(x.get_jx_names())
 
@@ -236,6 +238,8 @@ class NonlocalJ1D(PhysModule):
             ret.append(basename)
 
         for x in self["Domain"].walk_enabled():
+            if not hasattr(x, "count_y_terms"):
+                continue
             if x.count_y_terms() > 0:
                 ret.extend(x.get_jy_names())
 
@@ -244,6 +248,8 @@ class NonlocalJ1D(PhysModule):
             ret.append(basename)
 
         for x in self["Domain"].walk_enabled():
+            if not hasattr(x, "count_z_terms"):
+                continue
             if x.count_z_terms() > 0:
                 ret.extend(x.get_jz_names())
 
@@ -440,6 +446,42 @@ class NonlocalJ1D(PhysModule):
         dep_vars = self.dep_vars
         sdim = self.geom_dim
 
-        add_scalar(v, name, "", ind_vars, solr, soli)
+        #add_scalar(v, name, "", ind_vars, solr, soli)
+
+        # x
+        xnames = []
+        if self.has_jx:
+            basename = self.extra_vars_basex
+            xnames.append(basename)
+        for x in self["Domain"].walk_enabled():
+            if x.count_x_terms() > 0:
+                xnames.extend(x.get_jx_names())
+
+        if name in xnames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
+
+        # y
+        ynames = []
+        if self.has_jy:
+            basename = self.extra_vars_basey
+            ynames.append(basename)
+        for x in self["Domain"].walk_enabled():
+            if x.count_y_terms() > 0:
+                ynames.extend(x.get_jy_names())
+
+        if name in ynames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
+
+        # z
+        znames = []
+        if self.has_jz:
+            basename = self.extra_vars_basez
+            znames.append(basename)
+        for x in self["Domain"].walk_enabled():
+            if x.count_z_terms() > 0:
+                znames.extend(x.get_jz_names())
+
+        if name in znames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
 
         return v
