@@ -147,9 +147,9 @@ class NLJ2D(PhysModule):
         number of H1(Ex, Ey), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
         '''
         return (2, 3, 
-                self.nxterms + self.has_jx,
-                self.nyterms + self.has_jy,
-                self.nzterms + self.has_jz,)
+                self.nxterms,
+                self.nyterms,
+                self.nzterms,)
 
     def verify_setting(self):
         return True
@@ -179,16 +179,22 @@ class NLJ2D(PhysModule):
 
         '''
         dep_var = self.kfes2depvar(kfes)
+
+        dep_vars = self.dep_vars()
         jzname = self.get_root_phys().extra_vars_basez
         jxname = self.get_root_phys().extra_vars_basex
         jyname = self.get_root_phys().extra_vars_basey
 
-        if dep_var == jzname:
+        if dep_var == dep_vars[2]:
             return 2
-        elif dep_var == jxname:
+        elif dep_var == dep_vars[0]:
             return 8
-        elif dep_var == jyname:
+        elif dep_var == dep_vars[1]:
             return 9
+        elif dep_var == dep_vars[3]:
+            return 12
+        elif dep_var == dep_vars[4]:
+            return 13
         elif dep_var.startswith(jzname):
             return 5
         elif dep_var.startswith(jxname):
@@ -198,14 +204,15 @@ class NLJ2D(PhysModule):
 
     @property
     def dep_vars(self):
-        base = self.dep_vars_base_txt
+        basename = (self.dep_vars_base_txt + 
+                    self.dep_vars_suffix)
         ret = []
 
-        ret.append(basename)  # Exs
-        ret.append(basename)  # Eys
-        ret.append(basename)  # Jtx
-        ret.append(basename)  # Jty
-        ret.append(basename)  # Jtz
+        ret.append(basename+"Exs")  # Exs
+        ret.append(basename+"Eys")
+        ret.append(basename+"Jtx")
+        ret.append(basename+"Jty")
+        ret.append(basename+"Jtz")
 
         for x in self["Domain"].walk_enabled():
             if x.count_x_terms() > 0:
@@ -283,14 +290,7 @@ class NLJ2D(PhysModule):
         fecs = []
 
         for vv in v:
-            if vv.startswith(jxyname):
-                if self.use_nd:
-                    fecs.append((vv, 'ND_FECollection'))
-                if self.use_rt:
-                    fecs.append((vv, 'RT_FECollection'))
-                continue
-
-            elif vv == jxname:
+            if vv == jxname:
                 fecs.append((vv, 'H1_FECollection'))
 
             elif self.use_h1 and vv.startswith(jxname):
@@ -359,26 +359,15 @@ class NLJ2D(PhysModule):
     def attribute_set(self, v):
         v = super(NLJ2D, self).attribute_set(v)
 
-        v['discretization'] = 'H1'
-        if not hasattr(self, 'discretization'):
-            self.discretization = "H1"
-        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
-        if self.use_rt:
-            elements = "RT_FECollection * " + \
-                str(nnd) + ", H1_FECollection * " + \
-                str(nh1v + nh1x + nh1y + nh1z)
-        elif self.use_nd:
-            elements = "ND_FECollection * " + \
-                str(nnd) + ", H1_FECollection * " + \
-                str(nh1v + nh1x + nh1y + nh1z)
-        else:
-            elements = "H1_FECollection * "+str(nh1v + nh1x + nh1y + nh1z)
+        nnE, nnJ, nh1x, nh1y, nh1z = self.nterms
+        
+        elements = "H1_FECollection * "+str(nnE+ nnJ + nh1x + nh1y + nh1z)
 
         v["element"] = elements
         v["dim"] = 1
         v["ind_vars"] = 'x, y'
         v["dep_vars_suffix"] = ''
-        v["dep_vars_base_txt"] = 'Jnl'
+        v["dep_vars_base_txt"] = 'Nlj'
         v["is_complex_valued"] = True
         v["paired_model"] = None
 
@@ -406,7 +395,6 @@ class NLJ2D(PhysModule):
             ["derived vars.", ','.join(self.der_vars), 2, {}],
             ["predefined ns vars.", txt_predefined, 2, {}],
             c,
-            ["Discretization (Jxy)", None, 0, {}],
         ])
 
         return panels
@@ -426,8 +414,7 @@ class NLJ2D(PhysModule):
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
                     self.dep_vars_base_txt,
-                    names, name2, txt_predefined, gui_value,
-                    self.discretization, ])
+                    names, name2, txt_predefined, gui_value, ])
 
         return val
 
@@ -439,37 +426,20 @@ class NLJ2D(PhysModule):
         self.ind_vars = str(v[0])
         self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
-        self.discretization = v[-1]
 
-        nnd, nh1v, nh1x, nh1y, nh1z = self.nterms
-        if self.use_rt:
-            self.element = "RT_FECollection * " + \
-                str(nnd) + ", H1_FECollection * " + \
-                str(nh1v + nh1x + nh1y + nh1z)
-        elif self.use_nd:
-            self.element = "ND_FECollection * " + \
-                str(nnd) + ", H1_FECollection * " + \
-                str(nh1v + nh1x + nh1y + nh1z)
 
-        else:
-            self.element = "H1_FECollection * " + \
-                str(nh1v + nh1x + nh1y + nh1z)
+        nnE, nnJ, nh1x, nh1y, nh1z = self.nterms        
+        self.element = "H1_FECollection * " + \
+                str(nnE + nnJ + nh1x + nh1y + nh1z)
 
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
         from petram.utils import pm_from_gui_value
-        self.paired_model = pm_from_gui_value(self, v[-2])
+        self.paired_model = pm_from_gui_value(self, v[-1])
 
         return True
 
     def get_possible_domain(self):
-        from petram.phys.nonlocalj2d.jhot import NLJ2D_Jhot
-        from petram.phys.nonlocalj2d.jxxyy import NLJ2D_Jxxyy
-        from petram.phys.nonlocalj2d.jxxyy2 import NLJ2D_Jxxyy2
-        from petram.phys.nonlocalj2d.jxx3 import NLJ2D_Jxx3
-        from petram.phys.nonlocalj2d.jperp3 import NLJ2D_Jperp3
-        from petram.phys.nonlocalj2d.jperp4 import NLJ2D_Jperp4
-
         doms = [NLJ2D_Jhot, NLJ2D_Jxxyy,
                 NLJ2D_Jxxyy2, NLJ2D_Jperp3, NLJ2D_Jperp4, NLJ2D_Jxx3]
         doms.extend(super(NLJ2D, self).get_possible_domain())
@@ -514,34 +484,10 @@ class NLJ2D(PhysModule):
         dep_vars = self.dep_vars
         sdim = self.geom_dim
 
-        # xy
-        xynames = []
-        if self.has_jxy:
-            basename = self.extra_vars_basexy
-            xynames.append(basename)
-
-        for x in self["Domain"].walk_enabled():
-            if x.count_xy_terms() > 0:
-                xynames.extend(x.get_jxy_names())
-
-        if name in xynames:
-            add_elements(v, name, suffix, ind_vars,
-                         solr, soli, elements=[0, 1])
-
-        # p
-        pnames = []
-        for x in self["Domain"].walk_enabled():
-            if x.count_p_terms() > 0:
-                pnames.extend(x.get_jp_names())
-
-        if name in pnames:
-            add_scalar(v, name, suffix, ind_vars, solr, soli)
-
         # x
         xnames = []
-        if self.has_jx:
-            basename = self.extra_vars_basex
-            xnames.append(basename)
+        basename = self.extra_vars_basex
+        xnames.append(basename)
         for x in self["Domain"].walk_enabled():
             if x.count_x_terms() > 0:
                 xnames.extend(x.get_jx_names())
@@ -551,9 +497,8 @@ class NLJ2D(PhysModule):
 
         # y
         ynames = []
-        if self.has_jy:
-            basename = self.extra_vars_basey
-            ynames.append(basename)
+        basename = self.extra_vars_basey
+        ynames.append(basename)
         for x in self["Domain"].walk_enabled():
             if x.count_y_terms() > 0:
                 ynames.extend(x.get_jy_names())
@@ -563,9 +508,8 @@ class NLJ2D(PhysModule):
 
         # z
         znames = []
-        if self.has_jz:
-            basename = self.extra_vars_basez
-            znames.append(basename)
+        basename = self.extra_vars_basez
+        znames.append(basename)
         for x in self["Domain"].walk_enabled():
             if x.count_z_terms() > 0:
                 znames.extend(x.get_jz_names())
