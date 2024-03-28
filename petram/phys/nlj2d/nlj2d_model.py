@@ -49,14 +49,129 @@ class NLJ2D_BaseDomain(Domain, Phys):
     def get_jz_names(self):
         return []
 
+
 class NLJ2D_DefDomain(NLJ2D_BaseDomain):
+    data = (('label1', VtableElement(None,
+                                      guilabel="Default domain couples model with EM2D",
+                                      default="Exs, Eys, Jtx, Jty, Jtz",
+                                      tip="Defualt domain must be always on")),)
+
     can_delete = False
+    is_secondary_condition = True
 
     def get_panel1_value(self):
         return None
 
     def import_panel1_value(self, v):
         pass
+
+    def attribute_set(self, v):
+        super(NLJ2D_DefBdry, self).attribute_set(v)
+        v['sel_readonly'] = True
+        v['sel_index'] = ['all']
+        return v
+
+    def has_bf_contribution(self, kfes):
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+        if check in [12, 13, 2, 8, 9]:  # Exs, Eys, Jtx, Jty, Jtz
+            return True
+        return False
+
+    def has_mixed_contribution(self):
+        return True
+
+    def get_mixedbf_loc(self):
+        root = self.get_root_phys()
+        dep_vars = root.dep_vars()
+
+        paired_model = root.paired_model
+        mfem_physroot = root.parent
+        var_s = mfem_physroot[paired_model].dep_vars
+
+        Exyname = var_s[0]
+        Ezname = var_s[1]
+
+        loc = []
+        loc.append((dep_vars[0], Exyname, 1, 1))   # Exs
+        loc.append((dep_vars[1], Exyname, 1, 1))   # Exs
+        loc.append((Exyname, dep_vars[2], 1, 1))   # Jtx -> Exy
+        loc.append((Exyname, dep_vars[3], 1, 1))   # Jty -> Exy
+        loc.append((Ezname, dep_vars[4], 1, 1))   # Jtz -> Ez
+        return loc
+
+    def add_bf_contribution(self, engine, a, real=True, kfes=0):
+
+        root = self.get_root_phys()
+        dep_var = root.kfes2depvar(kfes)
+
+        if real:
+            one = mfem.ConstantCoefficient(1.0)
+            self.add_integrator(engine, 'mass', one, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
+            dprint1(message, "(real)",  dep_var, idx)
+        else:
+            pass
+
+    def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
+                              real=True):
+
+        root = self.get_root_phys()
+        dep_vars = root.dep_vars()
+
+        paired_model = root.paired_model
+        mfem_physroot = root.parent
+        em2d = mfem_physroot[paired_model]
+
+        var_s = em2d.dep_vars
+        freq, omega = em2d.get_freq_omega()
+
+        Exyname = var_s[0]
+        Ezname = var_s[1]
+
+        if c == Exyname and r == dep_vars[0]:   # Exy -> Exs
+            if not real:
+                return
+
+            one = mfem.ConstantCoefficient(mfem.Vector([1.0, 0.0]))
+            self.add_integrator(engine, 'Ex', one,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDotProductIntegrator)
+
+        elif c == Exyname and r == dep_vars[1]:   # Exy -> Eys
+            if not real:
+                return
+
+            one = mfem.VectorConstantCoefficient(mfem.Vector([0.0, 1.0]))
+            self.add_integrator(engine, 'Ey', one,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDotProductIntegrator)
+
+        elif c == dep_vars[2] and r == Exyname and    # -j*omega*Jtx -> Exy
+           coeff = mfem.VectorConstantCoefficient(mfem.Vector([-omega, 0.0]))
+            self.add_integrator(engine, 'cterm', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorProductIntegrator)
+
+        elif c == dep_vars[3] and r == Exyname and    # -j*omega*Jtx -> Exy
+           if real:
+                return
+
+            coeff = mfem.VectorConstantCoefficient(mfem.Vector([0.0, -omega]))
+            self.add_integrator(engine, 'cterm', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorProductIntegrator)
+
+        elif c == dep_vars[4] and r == Ezname and    # -j*omega*Jtx -> Ez
+           if real:
+                return
+
+            ccoeff = mfem.ConstantCoefficient(-omega)
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+        else:
+            assert False, "Should not come here: " + r + "/" + c
 
 
 class NLJ2D_DefBdry(Bdry, Phys):
@@ -146,7 +261,7 @@ class NLJ2D(PhysModule):
         '''
         number of H1(Ex, Ey), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
         '''
-        return (2, 3, 
+        return (2, 3,
                 self.nxterms,
                 self.nyterms,
                 self.nzterms,)
@@ -204,7 +319,7 @@ class NLJ2D(PhysModule):
 
     @property
     def dep_vars(self):
-        basename = (self.dep_vars_base_txt + 
+        basename = (self.dep_vars_base_txt +
                     self.dep_vars_suffix)
         ret = []
 
@@ -236,7 +351,6 @@ class NLJ2D(PhysModule):
     @property
     def dep_vars0(self):
         return self.dep_vars
-
 
     @property
     def extra_vars_basex(self):
@@ -338,7 +452,6 @@ class NLJ2D(PhysModule):
             return self.order
         else:
             assert False, "unsupported flag: "+str(flag)
-        
 
     def postprocess_after_add(self, engine):
         try:
@@ -360,8 +473,8 @@ class NLJ2D(PhysModule):
         v = super(NLJ2D, self).attribute_set(v)
 
         nnE, nnJ, nh1x, nh1y, nh1z = self.nterms
-        
-        elements = "H1_FECollection * "+str(nnE+ nnJ + nh1x + nh1y + nh1z)
+
+        elements = "H1_FECollection * "+str(nnE + nnJ + nh1x + nh1y + nh1z)
 
         v["element"] = elements
         v["dim"] = 1
@@ -427,10 +540,9 @@ class NLJ2D(PhysModule):
         self.is_complex_valued = True
         self.dep_vars_suffix = str(v[1])
 
-
-        nnE, nnJ, nh1x, nh1y, nh1z = self.nterms        
+        nnE, nnJ, nh1x, nh1y, nh1z = self.nterms
         self.element = "H1_FECollection * " + \
-                str(nnE + nnJ + nh1x + nh1y + nh1z)
+            str(nnE + nnJ + nh1x + nh1y + nh1z)
 
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
@@ -448,7 +560,7 @@ class NLJ2D(PhysModule):
 
     def get_possible_bdry(self):
         from petram.phys.nonlocalj2d.coldedge import NLJ2D_ColdEdge
-        from petram.phys.nonlocalj2d.continuity import NLJ2D_Continuity
+        from petram.phys.nonlocalj2d.cont import NLJ2D_Continuity
         bdrs = [NLJ2D_ColdEdge, NLJ2D_Continuity]
         bdrs.extend(super(NLJ2D, self).get_possible_bdry())
         return bdrs
