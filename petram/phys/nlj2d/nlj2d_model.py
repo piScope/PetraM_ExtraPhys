@@ -10,6 +10,7 @@ import numpy as np
 
 from petram.model import Domain, Bdry, Point, Pair
 from petram.phys.phys_model import Phys, PhysModule
+from petram.phys.vtable import VtableElement, Vtable
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Model')
@@ -52,23 +53,18 @@ class NLJ2D_BaseDomain(Domain, Phys):
 
 class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     data = (('label1', VtableElement(None,
-                                      guilabel="Default domain couples model with EM2D",
-                                      default="Exs, Eys, Jtx, Jty, Jtz",
-                                      tip="Defualt domain must be always on")),)
+                                     guilabel="Default domain couples non-local curent model with EM2D",
+                                     default="Exs, Eys, Jtx, Jty, Jtz",
+                                     tip="Defualt domain must be always on")),)
 
     can_delete = False
     is_secondary_condition = True
-
-    def get_panel1_value(self):
-        return None
-
-    def import_panel1_value(self, v):
-        pass
+    vt = Vtable(data)
 
     def attribute_set(self, v):
-        super(NLJ2D_DefBdry, self).attribute_set(v)
+        super(NLJ2D_DefDomain, self).attribute_set(v)
         v['sel_readonly'] = True
-        v['sel_index'] = ['all']
+        v['sel_index_txt'] = 'all'
         return v
 
     def has_bf_contribution(self, kfes):
@@ -147,14 +143,14 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
 
-        elif c == dep_vars[2] and r == Exyname and    # -j*omega*Jtx -> Exy
-           coeff = mfem.VectorConstantCoefficient(mfem.Vector([-omega, 0.0]))
+        elif c == dep_vars[2] and r == Exyname:  # -j*omega*Jtx -> Exy
+            coeff = mfem.VectorConstantCoefficient(mfem.Vector([-omega, 0.0]))
             self.add_integrator(engine, 'cterm', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[3] and r == Exyname and    # -j*omega*Jtx -> Exy
-           if real:
+        elif c == dep_vars[3] and r == Exyname:  # -j*omega*Jtx -> Exy
+            if real:
                 return
 
             coeff = mfem.VectorConstantCoefficient(mfem.Vector([0.0, -omega]))
@@ -162,8 +158,8 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[4] and r == Ezname and    # -j*omega*Jtx -> Ez
-           if real:
+        elif c == dep_vars[4] and r == Ezname:  # -j*omega*Jtx -> Ez
+            if real:
                 return
 
             ccoeff = mfem.ConstantCoefficient(-omega)
@@ -551,19 +547,18 @@ class NLJ2D(PhysModule):
 
         return True
 
-    def get_possible_domain(self):
-        doms = [NLJ2D_Jhot, NLJ2D_Jxxyy,
-                NLJ2D_Jxxyy2, NLJ2D_Jperp3, NLJ2D_Jperp4, NLJ2D_Jxx3]
-        doms.extend(super(NLJ2D, self).get_possible_domain())
-
-        return doms
-
     def get_possible_bdry(self):
-        from petram.phys.nonlocalj2d.coldedge import NLJ2D_ColdEdge
-        from petram.phys.nonlocalj2d.cont import NLJ2D_Continuity
-        bdrs = [NLJ2D_ColdEdge, NLJ2D_Continuity]
-        bdrs.extend(super(NLJ2D, self).get_possible_bdry())
-        return bdrs
+        if NLJ2D._possible_constraints is None:
+            self._set_possible_constraints('nlj2d')
+        bdrs = super(NLJ2D, self).get_possible_bdry()
+        return NLJ2D._possible_constraints['bdry'] + bdrs
+
+    def get_possible_domain(self):
+        if NLJ2D._possible_constraints is None:
+            self._set_possible_constraints('nlj2d')
+
+        doms = super(NLJ2D, self).get_possible_domain()
+        return NLJ2D._possible_constraints['domain'] + doms
 
     def get_possible_point(self):
         '''
