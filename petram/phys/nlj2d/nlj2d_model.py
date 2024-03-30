@@ -54,7 +54,7 @@ class NLJ2D_BaseDomain(Domain, Phys):
 class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     data = (('label1', VtableElement(None,
                                      guilabel="Default domain couples non-local curent model with EM2D",
-                                     default="Exs, Eys, Jtx, Jty, Jtz",
+                                     default="",
                                      tip="Defualt domain must be always on")),)
 
     can_delete = False
@@ -70,7 +70,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check in [12, 13, 2, 8, 9]:  # Exs, Eys, Jtx, Jty, Jtz
+        if check in [12, 13, 14. 2, 8, 9]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz
             return True
         return False
 
@@ -91,9 +91,10 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         loc = []
         loc.append((dep_vars[0], Exyname, 1, 1))   # Exs
         loc.append((dep_vars[1], Exyname, 1, 1))   # Exs
-        loc.append((Exyname, dep_vars[2], 1, 1))   # Jtx -> Exy
-        loc.append((Exyname, dep_vars[3], 1, 1))   # Jty -> Exy
-        loc.append((Ezname, dep_vars[4], 1, 1))   # Jtz -> Ez
+        loc.append((dep_vars[2], Ezname, 1, 1))   # Ezs        
+        loc.append((Exyname, dep_vars[3], 1, 1))   # Jtx -> Exy
+        loc.append((Exyname, dep_vars[4], 1, 1))   # Jty -> Exy
+        loc.append((Ezname, dep_vars[5], 1, 1))   # Jtz -> Ez
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
@@ -129,7 +130,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            one = mfem.ConstantCoefficient(mfem.Vector([1.0, 0.0]))
+            one = mfem.VectorConstantCoefficient(mfem.Vector([1.0, 0.0]))
             self.add_integrator(engine, 'Ex', one,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
@@ -142,14 +143,22 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             self.add_integrator(engine, 'Ey', one,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
+        elif c == Ezname and r == dep_vars[2]:   # Ez -> Ezs
+            if not real:
+                return
 
-        elif c == dep_vars[2] and r == Exyname:  # -j*omega*Jtx -> Exy
+            one = mfem.ConstantCoefficient(1.0)
+            self.add_integrator(engine, 'Ez', one,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+
+        elif c == dep_vars[3] and r == Exyname:  # -j*omega*Jtx -> Exy
             coeff = mfem.VectorConstantCoefficient(mfem.Vector([-omega, 0.0]))
             self.add_integrator(engine, 'cterm', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[3] and r == Exyname:  # -j*omega*Jtx -> Exy
+        elif c == dep_vars[4] and r == Exyname:  # -j*omega*Jtx -> Exy
             if real:
                 return
 
@@ -158,7 +167,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[4] and r == Ezname:  # -j*omega*Jtx -> Ez
+        elif c == dep_vars[5] and r == Ezname:  # -j*omega*Jtx -> Ez
             if real:
                 return
 
@@ -255,9 +264,9 @@ class NLJ2D(PhysModule):
     @property
     def nterms(self):
         '''
-        number of H1(Ex, Ey), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
+        number of H1(Ex, Ey, Ez), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
         '''
-        return (2, 3,
+        return (3, 3,
                 self.nxterms,
                 self.nyterms,
                 self.nzterms,)
@@ -287,6 +296,7 @@ class NLJ2D(PhysModule):
                11: epara
                12: Exs (Ex in H1)
                13: Eys (Ey in H1)
+               14: Eys (Ez in H1)
 
         '''
         dep_var = self.kfes2depvar(kfes)
@@ -296,16 +306,18 @@ class NLJ2D(PhysModule):
         jxname = self.get_root_phys().extra_vars_basex
         jyname = self.get_root_phys().extra_vars_basey
 
-        if dep_var == dep_vars[2]:
+        if dep_var == dep_vars[5]:
             return 2
-        elif dep_var == dep_vars[0]:
-            return 8
-        elif dep_var == dep_vars[1]:
-            return 9
         elif dep_var == dep_vars[3]:
-            return 12
+            return 8
         elif dep_var == dep_vars[4]:
+            return 9
+        elif dep_var == dep_vars[0]:
+            return 12
+        elif dep_var == dep_vars[1]:
             return 13
+        elif dep_var == dep_vars[2]:
+            return 14
         elif dep_var.startswith(jzname):
             return 5
         elif dep_var.startswith(jxname):
@@ -321,6 +333,7 @@ class NLJ2D(PhysModule):
 
         ret.append(basename+"Exs")  # Exs
         ret.append(basename+"Eys")
+        ret.append(basename+"Ezs")        
         ret.append(basename+"Jtx")
         ret.append(basename+"Jty")
         ret.append(basename+"Jtz")
@@ -400,16 +413,13 @@ class NLJ2D(PhysModule):
         fecs = []
 
         for vv in v:
-            if vv == jxname:
+            if vv in v[:6]:
                 fecs.append((vv, 'H1_FECollection'))
 
-            elif self.use_h1 and vv.startswith(jxname):
+            elif vv.startswith(jxname):
                 fecs.append((vv, 'H1_FECollection'))
 
-            elif vv == jyname:
-                fecs.append((vv, 'H1_FECollection'))
-
-            elif self.use_h1 and vv.startswith(jyname):
+            elif vv.startswith(jyname):
                 fecs.append((vv, 'H1_FECollection'))
 
             elif vv.startswith(jzname):
@@ -445,6 +455,8 @@ class NLJ2D(PhysModule):
         elif flag == 12:  # Exs
             return self.order
         elif flag == 13:  # Eys
+            return self.order
+        elif flag == 14:  # Ezs
             return self.order
         else:
             assert False, "unsupported flag: "+str(flag)
