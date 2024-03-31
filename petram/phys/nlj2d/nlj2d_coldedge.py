@@ -51,10 +51,14 @@ class NLJ2D_ColdEdge(Bdry, Phys):
         return v
 
     def get_essential_idx(self, kfes):
-        # if kfes == 0:
-        return self._sel_index
-        # else:
-        #    return []
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+        dep_var = root.kfes2depvar(kfes)
+
+        if check in (2, 5, 6, 8, 7, 9):
+            return self._sel_index
+        else:
+            return []
 
     def apply_essential(self, engine, gf, real=False, kfes=0):
         jx0, jy0, jz0 = self.vt.make_value_or_expression(self)

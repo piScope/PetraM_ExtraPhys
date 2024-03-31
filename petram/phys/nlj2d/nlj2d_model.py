@@ -98,6 +98,9 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         loc.append((dep_vars[0], Exyname, 1, 1))   # Exs
         loc.append((dep_vars[1], Exyname, 1, 1))   # Exs
         loc.append((dep_vars[2], Ezname, 1, 1))   # Ezs
+
+        if root.no_J_E:
+            return loc
         loc.append((Exyname, dep_vars[3], 1, 1))   # Jtx -> Exy
         loc.append((Exyname, dep_vars[4], 1, 1))   # Jty -> Exy
         loc.append((Ezname, dep_vars[5], 1, 1))   # Jtz -> Ez
@@ -138,7 +141,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            one = mfem.VectorConstantCoefficient(mfem.Vector([1.0, 0.0]))
+            one = mfem.VectorConstantCoefficient(mfem.Vector([-1.0, 0.0]))
             self.add_integrator(engine, 'Ex', one,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
@@ -147,7 +150,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            one = mfem.VectorConstantCoefficient(mfem.Vector([0.0, 1.0]))
+            one = mfem.VectorConstantCoefficient(mfem.Vector([0.0, -1.0]))
             self.add_integrator(engine, 'Ey', one,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
@@ -155,12 +158,15 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            one = mfem.ConstantCoefficient(1.0)
+            one = mfem.ConstantCoefficient(-1.0)
             self.add_integrator(engine, 'Ez', one,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
 
         elif c == dep_vars[3] and r == Exyname:  # -j*omega*Jtx -> Exy
+            if real:
+                return
+
             coeff = mfem.VectorConstantCoefficient(mfem.Vector([-omega, 0.0]))
             self.add_integrator(engine, 'cterm', coeff,
                                 mbf.AddDomainIntegrator,
@@ -499,7 +505,7 @@ class NLJ2D(PhysModule):
         v["dep_vars_base_txt"] = 'Nlj'
         v["is_complex_valued"] = True
         v["paired_model"] = None
-
+        v["no_J_E"] = False  # option to suppress feedback from nonlocal current to E
         return v
 
     def get_default_ns(self):
@@ -524,6 +530,7 @@ class NLJ2D(PhysModule):
             ["derived vars.", ','.join(self.der_vars), 2, {}],
             ["predefined ns vars.", txt_predefined, 2, {}],
             c,
+            ["use E->J only", False, 3, {"text": ' '}],
         ])
 
         return panels
@@ -543,7 +550,8 @@ class NLJ2D(PhysModule):
         val.extend([self.ind_vars,
                     self.dep_vars_suffix,
                     self.dep_vars_base_txt,
-                    names, name2, txt_predefined, gui_value, ])
+                    names, name2, txt_predefined, gui_value,
+                    self.no_J_E])
 
         return val
 
@@ -563,7 +571,8 @@ class NLJ2D(PhysModule):
         self.dep_vars_base_txt = (str(v[2]).split(','))[0].strip()
 
         from petram.utils import pm_from_gui_value
-        self.paired_model = pm_from_gui_value(self, v[-1])
+        self.paired_model = pm_from_gui_value(self, v[-2])
+        self.no_J_E = bool(v[-1])
 
         return True
 
@@ -608,6 +617,11 @@ class NLJ2D(PhysModule):
         add_coordinates(v, ind_vars)
         add_surf_normals(v, ind_vars)
 
+        add_scalar(v, name, "", ind_vars, solr, soli)
+
+        return v
+
+        '''
         dep_vars = self.dep_vars
         sdim = self.geom_dim
 
@@ -645,3 +659,4 @@ class NLJ2D(PhysModule):
             add_scalar(v, name, suffix, ind_vars, solr, soli)
 
         return v
+        '''
