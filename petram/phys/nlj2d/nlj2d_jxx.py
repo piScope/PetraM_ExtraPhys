@@ -253,9 +253,14 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
+
         dep_var = root.kfes2depvar(kfes)
+
         names = self.current_names_xyz()
-        if dep_var not in names:
+        xudiag, xvdiag, yudiag, yvdiag, zudiag, zvdiag = names
+        all_names = xudiag + xvdiag + yudiag + yvdiag + zudiag + zvdiag
+
+        if dep_var not in all_names:
             return False
 
         if check == 6:     # jx
@@ -416,7 +421,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             if umode:
                 if not real:
                     return
-                ccoeff = mfem.ConstantCoefficient(0.5)
+                ccoeff = mfem.ConstantCoefficient(-0.5)
             else:
                 ccoeff = slot["conj(diag-diagi)*M"]
 
@@ -424,98 +429,3 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
-
-        '''
-        elif r in (Exname, Eyname, Ezname):
-            idx, umode, dirc = self._get_dep_var_idx(c, names)
-        else:
-            assert False, "Should not come here"
-
-        if c == Exyname:
-            if idx == 0:
-                slot = self._jitted_coeffs["c0"]
-            else:
-                slot = self._jitted_coeffs["cterms"][idx-1]
-
-            if dirc == 'x':
-                mat = M_perp[[0], [0, 1]]
-            elif dirc == 'y':
-                mat = M_perp[[1], [0, 1]]
-            elif dirc == 'z':
-                mat = M_perp[[2], [0, 1]]
-
-            if umode:
-                ccoeff_d = slot["diag"] + slot["diagi"]
-                ccoeff2 = mat*ccoeff_d
-            else:
-                ccoeff = 1j*fac
-                ccoeff2 = mat*ccoeff
-            self.add_integrator(engine, 'cterm', ccoeff2,
-                                mbf.AddDomainIntegrator,
-                                mfem.MixedDotProductIntegrator)
-
-
-            return
-
-        if c == Ezname:
-            if idx == 0:
-                slot = self._jitted_coeffs["c0"]
-            else:
-                slot = self._jitted_coeffs["cterms"][idx-1]
-
-            if dirc == 'x':
-                mat = M_perp[[0], [2]]
-            elif dirc == 'y':
-                mat = M_perp[[1], [2]]
-            elif dirc == 'z':
-                mat = M_perp[[2], [2]]
-
-            if umode:
-                ccoeff_d = slot["diag"] + slot["diagi"]
-                ccoeff2 = mat*ccoeff_d
-            else:
-                ccoeff = 1j*fac
-                ccoeff2 = mat*ccoeff
-            self.add_integrator(engine, 'cterm', ccoeff2,
-                                mbf.AddDomainIntegrator,
-                                mfem.MixedScalarMassIntegrator)
-            return
-
-        if r == Exyname and dirc != 'z':
-            if idx == 0:
-                slot = self._jitted_coeffs["c0"]
-            else:
-                slot = self._jitted_coeffs["cterms"][idx-1]
-
-            if umode:
-                ccoeff = (1j*fac).conj()
-            else:
-                ccoeff = (slot["diag"] - slot["diagi"]).conj()
-
-            if dirc == 'x':
-                coeff2 = xvec*ccoeff
-            else:
-                coeff2 = yvec*ccoeff
-            self.add_integrator(engine, 'cterm', coeff2,
-                                mbf.AddDomainIntegrator,
-                                mfem.MixedVectorProductIntegrator)
-            return
-
-        if r == Ezname and dirc == 'z':
-            if idx == 0:
-                slot = self._jitted_coeffs["c0"]
-            else:
-                slot = self._jitted_coeffs["cterms"][idx-1]
-
-            if umode:
-                ccoeff = (1j*fac).conj()
-            else:
-                ccoeff = (slot["diag"] - slot["diagi"]).conj()
-
-            self.add_integrator(engine, 'cterm', ccoeff,
-                                mbf.AddDomainIntegrator,
-                                mfem.MixedScalarMassIntegrator)
-            return
-
-        dprint1("No mixed-contribution"  "r/c", r, c, is_trans)
-        '''
