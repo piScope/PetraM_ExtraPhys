@@ -76,7 +76,7 @@ class NLJ2D_ColdEdge(Bdry, Phys):
             txt = " (y component)"
 
         else:
-            assert False, 'Unknown check return value'
+            return
 
         if real:
             dprint1("Apply Ess.(real)" + str(self._sel_index),
@@ -95,7 +95,7 @@ class NLJ2D_ColdEdge(Bdry, Phys):
         l = self._local_ns
         g = self._global_ns
 
-        coeff1 = SCoeff(c0, ind_vars, l, g, return_complex=True)
+        coeff1 = SCoeff([c0], ind_vars, l, g, return_complex=True)
         coeff1 = coeff1.get_realimag_coefficient(real)
 
         gf.ProjectBdrCoefficient(coeff1,

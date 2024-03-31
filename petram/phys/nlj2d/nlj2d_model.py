@@ -5,6 +5,7 @@
    physics module to handle non-local current
 
 '''
+from petram.mfem_config import use_parallel
 import sys
 import numpy as np
 
@@ -14,6 +15,11 @@ from petram.phys.vtable import VtableElement, Vtable
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Model')
+
+if use_parallel:
+    import mfem.par as mfem
+else:
+    import mfem.ser as mfem
 
 txt_predefined = ''
 model_basename = 'NLJ2D'
@@ -70,7 +76,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check in [12, 13, 14. 2, 8, 9]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz
+        if check in [12, 13, 14, 2, 8, 9]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz
             return True
         return False
 
@@ -79,7 +85,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
 
     def get_mixedbf_loc(self):
         root = self.get_root_phys()
-        dep_vars = root.dep_vars()
+        dep_vars = root.dep_vars
 
         paired_model = root.paired_model
         mfem_physroot = root.parent
@@ -91,7 +97,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         loc = []
         loc.append((dep_vars[0], Exyname, 1, 1))   # Exs
         loc.append((dep_vars[1], Exyname, 1, 1))   # Exs
-        loc.append((dep_vars[2], Ezname, 1, 1))   # Ezs        
+        loc.append((dep_vars[2], Ezname, 1, 1))   # Ezs
         loc.append((Exyname, dep_vars[3], 1, 1))   # Jtx -> Exy
         loc.append((Exyname, dep_vars[4], 1, 1))   # Jty -> Exy
         loc.append((Ezname, dep_vars[5], 1, 1))   # Jtz -> Ez
@@ -102,11 +108,13 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
+        message = "smoothed E and total J"
+
         if real:
             one = mfem.ConstantCoefficient(1.0)
             self.add_integrator(engine, 'mass', one, a.AddDomainIntegrator,
                                 mfem.MassIntegrator)
-            dprint1(message, "(real)",  dep_var, idx)
+            dprint1(message, "(real)",  dep_var, kfes)
         else:
             pass
 
@@ -114,7 +122,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                               real=True):
 
         root = self.get_root_phys()
-        dep_vars = root.dep_vars()
+        dep_vars = root.dep_vars
 
         paired_model = root.paired_model
         mfem_physroot = root.parent
@@ -272,7 +280,7 @@ class NLJ2D(PhysModule):
                 self.nzterms,)
 
     def verify_setting(self):
-        return True
+        return True, '', ''
 
     def kfes2depvar(self, kfes):
         root = self.get_root_phys()
@@ -301,7 +309,7 @@ class NLJ2D(PhysModule):
         '''
         dep_var = self.kfes2depvar(kfes)
 
-        dep_vars = self.dep_vars()
+        dep_vars = self.dep_vars
         jzname = self.get_root_phys().extra_vars_basez
         jxname = self.get_root_phys().extra_vars_basex
         jyname = self.get_root_phys().extra_vars_basey
@@ -333,7 +341,7 @@ class NLJ2D(PhysModule):
 
         ret.append(basename+"Exs")  # Exs
         ret.append(basename+"Eys")
-        ret.append(basename+"Ezs")        
+        ret.append(basename+"Ezs")
         ret.append(basename+"Jtx")
         ret.append(basename+"Jty")
         ret.append(basename+"Jtz")

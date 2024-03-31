@@ -4,7 +4,9 @@ This model consider
    J_perp = wp^2/w n^2 exp(-l)In/l E_perp
 
 '''
-from petram.phys.nonlocalj2d.nonlocalj2d_model import NonlocalJ2D_BaseDomain
+from petram.phys.common.vector_fe_helper import VectorFEHelper_mxin
+from petram.mfem_config import use_parallel
+from petram.phys.nlj2d.nlj2d_model import NLJ2D_BaseDomain
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 
@@ -17,7 +19,6 @@ from petram.phys.phys_model import Phys, PhysModule
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Jxx')
 
-from petram.mfem_config import use_parallel
 if use_parallel:
     import mfem.par as mfem
 else:
@@ -56,10 +57,14 @@ data = (('B', VtableElement('bext', type='array',
                              tip="wave number` in the z direction")),)
 
 
+def domain_constraints():
+    return [NLJ2D_Jxx]
+
+
 component_options = ("mass", "mass + curlcurl")
 anbn_options = ("kpara->0 + col.", "kpara from kz")
 
-from petra.phys.vectorfe_helper_mixin import VectorFEHelper_mxin
+
 class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
     has_essential = False
     nlterms = []
@@ -128,7 +133,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         basex = self.get_root_phys().extra_vars_basex
         basey = self.get_root_phys().extra_vars_basey
         basez = self.get_root_phys().extra_vars_basez
-        
+
         xudiag = [basex + "u" + self.name() + str(i+1)
                   for i in range(self._count_perp_terms())]
         xvdiag = [basex + "v" + self.name() + str(i+1)
@@ -165,7 +170,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         ngrid = self.ra_ngrid
 
         from petram.phys.common.nonlocalj_subs import jperp_terms
-        from petram.phys.nonlocalj2d.subs_perp3 import build_perp_coefficients
+        from petram.phys.nlj2d.nlj2d_jxx_subs import build_perp_coefficients
 
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
                            mmin=mmin, mmax=mmin, ngrid=ngrid)
@@ -175,7 +180,6 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
                                                       tene, fits,
                                                       self.An_mode,
                                                       self._global_ns, self._local_ns,)
-
 
     def attribute_set(self, v):
         Domain.attribute_set(self, v)
@@ -249,6 +253,11 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
+        dep_var = root.kfes2depvar(kfes)
+        names = self.current_names_xyz()
+        if dep_var not in names:
+            return False
+
         if check == 6:     # jx
             return True
         elif check == 7:   # jy
@@ -267,7 +276,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         all_names = xudiag + xvdiag + yudiag + yvdiag + zudiag + zvdiag
 
         root = self.get_root_phys()
-        dep_vars = root.dep_vars() # "Exs, Exy, Jtx, Jty, Jtz"
+        dep_vars = root.dep_vars  # "Exs, Exy, Jtx, Jty, Jtz"
 
         loc = []
         for n in all_names:
@@ -276,7 +285,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             loc.append((n, dep_vars[2], 1, 1))
             loc.append((dep_vars[3], n,  1, 1))
             loc.append((dep_vars[4], n,  1, 1))
-            loc.append((dep_vars[5], n,  1, 1))                        
+            loc.append((dep_vars[5], n,  1, 1))
 
         return loc
 
@@ -297,7 +306,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         elif dep_var in yvdiag:
             idx = yvdiag.index(dep_var)
             umode = False
-            dirc =  1
+            dirc = 1
         elif dep_var in zudiag:
             idx = zudiag.index(dep_var)
             umode = True
@@ -355,51 +364,69 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
                                 mfem.MassIntegrator)
 
         if real:
-            dprint1(message, "(real)",  dep_var, idx)
+            dprint1(message, "(real)", dep_var, idx)
         else:
-            dprint1(message, "(imag)",  dep_var, idx)
+            dprint1(message, "(imag)", dep_var, idx)
 
-    def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
+    def add_mix_contribution2(self, engine, mbf, row, col, is_trans, _is_conj,
                               real=True):
+        '''
+        fill mixed contribution
+        '''
 
         root = self.get_root_phys()
-        dep_vars = root.dep_vars() # "Exs, Exy, Jtx, Jty, Jtz"
-        
-        
+        dep_vars = root.dep_vars  # "Exs, Exy, Jtx, Jty, Jtz"
         names = self.current_names_xyz()
-
-        fac = self._jitted_coeffs["fac"]
-        M_perp = self._jitted_coeffs["M_perp"]
-        xvec = self._jitted_coeffs["xvec"]
-        yvec = self._jitted_coeffs["yvec"]
 
         if real:
             dprint1("Add mixed cterm contribution(real)"  "r/c",
-                    r, c, is_trans)
+                    row, col, is_trans)
         else:
             dprint1("Add mixed cterm contribution(imag)"  "r/c",
-                    r, c, is_trans)
+                    row, col, is_trans)
 
-        if c in dep_vars[:3]:
-            idx, umode, jj = self._get_dep_var_idx(r, names)
-            ii = dep_vars[:3].index[c]
-            
+        if col in dep_vars[:3]:   # Exs, Exy, Exz -> Ju, Jv
+            idx, umode, rowi = self._get_dep_var_idx(row, names)
+            colj = dep_vars[:3].index(col)
+
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
             else:
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                ccoeff_d = slot["diag"] + slot["diagi"]
-                ccoeff2 = mat*ccoeff_d
+                ccoeff = slot["(diag+diagi)*M"]
             else:
-                ccoeff = 1j*fac
-                ccoeff2 = mat*ccoeff
-                
-            self.fill_mass_matrix(engine, mfem, ii, jj, ccoeff2)
+                if not real:
+                    return
+                ccoeff = mfem.ConstantCoefficient(0.5)
 
-            
-        elif r == Exyname or r == Ezname:
+            self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+            return
+
+        if row in dep_vars[3:6]:  # Ju, Jv -> Jt
+            idx, umode, colj = self._get_dep_var_idx(col, names)
+            rowi = dep_vars[3:6].index(row)
+
+            if idx == 0:
+                slot = self._jitted_coeffs["c0"]
+            else:
+                slot = self._jitted_coeffs["cterms"][idx-1]
+
+            if umode:
+                if not real:
+                    return
+                ccoeff = mfem.ConstantCoefficient(0.5)
+            else:
+                ccoeff = slot["conj(diag-diagi)*M"]
+
+            self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+            return
+
+        dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
+
+        '''
+        elif r in (Exname, Eyname, Ezname):
             idx, umode, dirc = self._get_dep_var_idx(c, names)
         else:
             assert False, "Should not come here"
@@ -469,24 +496,6 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
                 coeff2 = xvec*ccoeff
             else:
                 coeff2 = yvec*ccoeff
-            '''
-            if real:
-                mfem_coeff = ccoeff.get_real_coefficient()
-            else:
-                mfem_coeff = ccoeff.get_imag_coefficient()
-                
-            coeff2 = mfem.VectorArrayCoefficient(2)
-            if dirc == 'x':
-                coeff2.Set(0, mfem_coeff)   
-                coeff2.Set(1, mfem.ConstantCoefficient(0.0))
-            elif dirc == 'y':
-                coeff2.Set(0, mfem.ConstantCoefficient(0.0))                
-                coeff2.Set(1, mfem_coeff)
-            else:
-                assert False, "should not come here"
-
-            coeff2._link = ccoeff
-            '''
             self.add_integrator(engine, 'cterm', coeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
@@ -509,3 +518,4 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             return
 
         dprint1("No mixed-contribution"  "r/c", r, c, is_trans)
+        '''
