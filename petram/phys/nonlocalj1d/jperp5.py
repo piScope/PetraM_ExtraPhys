@@ -116,17 +116,29 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return int(self._nperpterms)
 
     def get_jx_names(self):
-        xdiag, _ydiag = self.current_names()
+        if self.use_4_components == "zz":
+            return []
+
+        xdiag, _ydiag, _zdiag = self.current_names()
         return xdiag
 
     def get_jy_names(self):
-        xdiag, ydiag = self.current_names()
+        if self.use_4_components == "zz":
+            return []
+
+        xdiag, ydiag, _zdiag = self.current_names()
 
         if self.use_4_components == "xx only":
             return []
         else:
             return ydiag
 #            return ydiag + ycross + ygrad
+
+    def get_jz_names():
+        if self.use_4_components == "zz":
+            _xdiag, _ydiag, zdiag = self.current_names()
+            return zdiag
+        return []
 
     def count_x_terms(self):
         return len(self.get_jx_names())
@@ -135,12 +147,13 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         return len(self.get_jy_names())
 
     def count_z_terms(self):
-        return 0
+        return len(self.get_jz_names())
 
     def current_names(self):
         # all possible names without considering run-condition
         basex = self.get_root_phys().extra_vars_basex
         basey = self.get_root_phys().extra_vars_basey
+        basez = self.get_root_phys().extra_vars_basez
 
         xdiag = ([basex + "u" + self.name() + str(i+1)
                   for i in range(self._count_perp_terms())] +
@@ -150,7 +163,11 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                   for i in range(self._count_perp_terms())] +
                  [basey + "v" + self.name() + str(i+1)
                   for i in range(self._count_perp_terms())])
-        return xdiag, ydiag
+        zdiag = ([basez + "u" + self.name() + str(i+1)
+                  for i in range(self._count_perp_terms())] +
+                 [basez + "v" + self.name() + str(i+1)
+                  for i in range(self._count_perp_terms())])
+        return xdiag, ydiag, zdiag
 
     @property
     def jited_coeff(self):
@@ -213,7 +230,7 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
         panels = super(NonlocalJ1D_Jperp4, self).panel1_param()
         panels.extend([["An", None, 1, {"values": ["kpara->0 + col.", "kpara from kz"]}],
                        ["Components", None, 1, {
-                           "values": ["xx only", "xx-xy-yx-yy"]}],
+                           "values": ["xx only", "xx-xy-yx-yy",  "zz"]}],
                        ["cyclotron harms.", None, 400, {}],
                        ["-> RA. options", None, None, {"no_tlw_resize": True}],
                        ["RA max kp*rho", None, 300, {}],
@@ -270,15 +287,18 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
 
         jxnames = self.get_jx_names()
         jynames = self.get_jy_names()
+        jznames = self.get_jy_names()
 
         basex = self.get_root_phys().extra_vars_basex
         basey = self.get_root_phys().extra_vars_basey
+        basez = self.get_root_phys().extra_vars_basez
 
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
         var_s = mfem_physroot[paired_model].dep_vars
         Exname = var_s[0]
         Eyname = var_s[1]
+        Ezname = var_s[2]
 
         loc = []
         if self.use_4_components == "xx only":
@@ -288,6 +308,13 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
             for n in xdiag:   # Jx -> Ex
                 if n in jxnames:
                     loc.append((Exname, n, 1, 1))
+        elif self.use_4_components == "zz":
+            for n in zdiag:   # Ez, -> Jz
+                if n in jznames:
+                    loc.append((n, Ezname, 1, 1))
+            for n in zdiag:   # Jz -> Ez
+                if n in jznames:
+                    loc.append((Ezname, n, 1, 1))
 
         else:
             for n in xdiag:   # Jx
@@ -524,7 +551,6 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                 ccoeff = (-slot["xy"] + slot["xyi"]).conj()
             else:
                 ccoeff = (1j*fac).conj()
-
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
 
@@ -549,7 +575,6 @@ class NonlocalJ1D_Jperp4(NonlocalJ1D_BaseDomain):
                 ccoeff = (slot["diag"] - slot["diagi"]).conj()
             else:
                 ccoeff = (1j*fac).conj()
-
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator, mfem.MixedScalarMassIntegrator)
             # return

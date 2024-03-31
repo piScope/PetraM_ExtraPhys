@@ -689,11 +689,12 @@ class NonlocalJ2D(PhysModule):
         from petram.phys.nonlocalj2d.jhot import NonlocalJ2D_Jhot
         from petram.phys.nonlocalj2d.jxxyy import NonlocalJ2D_Jxxyy
         from petram.phys.nonlocalj2d.jxxyy2 import NonlocalJ2D_Jxxyy2
+        from petram.phys.nonlocalj2d.jxx3 import NonlocalJ2D_Jxx3
         from petram.phys.nonlocalj2d.jperp3 import NonlocalJ2D_Jperp3
         from petram.phys.nonlocalj2d.jperp4 import NonlocalJ2D_Jperp4
 
         doms = [NonlocalJ2D_Jhot, NonlocalJ2D_Jxxyy,
-                NonlocalJ2D_Jxxyy2, NonlocalJ2D_Jperp3, NonlocalJ2D_Jperp4]
+                NonlocalJ2D_Jxxyy2, NonlocalJ2D_Jperp3, NonlocalJ2D_Jperp4, NonlocalJ2D_Jxx3]
         doms.extend(super(NonlocalJ2D, self).get_possible_domain())
 
         return doms
@@ -736,6 +737,7 @@ class NonlocalJ2D(PhysModule):
         dep_vars = self.dep_vars
         sdim = self.geom_dim
 
+        # xy
         xynames = []
         if self.has_jxy:
             basename = self.extra_vars_basexy
@@ -749,6 +751,7 @@ class NonlocalJ2D(PhysModule):
             add_elements(v, name, suffix, ind_vars,
                          solr, soli, elements=[0, 1])
 
+        # p
         pnames = []
         for x in self["Domain"].walk_enabled():
             if x.count_p_terms() > 0:
@@ -757,6 +760,31 @@ class NonlocalJ2D(PhysModule):
         if name in pnames:
             add_scalar(v, name, suffix, ind_vars, solr, soli)
 
+        # x
+        xnames = []
+        if self.has_jx:
+            basename = self.extra_vars_basex
+            xnames.append(basename)
+        for x in self["Domain"].walk_enabled():
+            if x.count_x_terms() > 0:
+                xnames.extend(x.get_jx_names())
+
+        if name in xnames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
+
+        # y
+        ynames = []
+        if self.has_jy:
+            basename = self.extra_vars_basey
+            ynames.append(basename)
+        for x in self["Domain"].walk_enabled():
+            if x.count_y_terms() > 0:
+                ynames.extend(x.get_jy_names())
+
+        if name in ynames:
+            add_scalar(v, name, suffix, ind_vars, solr, soli)
+
+        # z
         znames = []
         if self.has_jz:
             basename = self.extra_vars_basez

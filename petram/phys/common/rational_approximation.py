@@ -278,7 +278,8 @@ def calc_decomposition(func, x, mmax, xp=None, viewer=None, **kwargs):
         if np.iscomplexobj(f):
             viewer.plot(xp, fit.imag, 'g--')
 
-    return f_sum
+    max_error = np.max(np.abs(f - fit))
+    return f_sum, max_error
 
 
 def calc_decompositions(funcs, x, mmax, xp, viewer=None, **kwargs):
@@ -344,18 +345,25 @@ def calc_decompositions(funcs, x, mmax, xp, viewer=None, **kwargs):
     return f_sums, errors
 
 
-def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=8, **kwargs):
+def find_decomposition(func, x, xp=None, viewer=None, mmin=2, mmax=8,
+                       tol=None, **kwargs):
+    '''
+    find rational approximation of func (callable)
+       x = parameter range to fit
+       tol = max error measured fitting points
+    '''
     mm = mmin
     while mm <= mmax:
-        fit = calc_decomposition(func, x, mm, xp=xp, viewer=viewer, **kwargs)
+        succsss = False
+        fit, err = calc_decomposition(func, x, mm, xp=xp, viewer=viewer, **kwargs)
         if fit is not None:
-            break
+            success = np.all([d.real < 0 for d in fit.d_arr])
+            if success:
+                if tol is None or err < tol:
+                    break
 
         mm = mm + 1
-
-    success = np.all([d.real < 0 for d in fit.d_arr])
-
-    return fit, success
+    return fit, success, err
 
 
 def find_decompositions(funcs, x, viewer=None, xp=None,

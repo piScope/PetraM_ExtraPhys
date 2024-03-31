@@ -183,6 +183,7 @@ class NonlocalJ1D_Jperp3(NonlocalJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
+        self.vt.preprocess_params(self)
         B, dens, temp, mass, charge, tene, ky, kz = self.vt.make_value_or_expression(
             self)
         nmax = self.ra_nmax

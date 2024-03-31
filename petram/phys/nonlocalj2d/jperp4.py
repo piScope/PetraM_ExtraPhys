@@ -54,6 +54,10 @@ data = (('B', VtableElement('bext', type='array',
                              tip="wave number` in the z direction")),)
 
 
+component_options = ("mass", "mass + curlcurl")
+anbn_options = ("kpara->0 + col.", "kpara from kz")
+
+
 class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
     has_essential = False
     nlterms = []
@@ -129,18 +133,25 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                    for i in range(self._count_perp_terms())]
         xyvdiag = [basexy + "v" + self.name() + str(i+1)
                    for i in range(self._count_perp_terms())]
-        xyrudiag = [basexy + "ru" + self.name() + str(i+1)
-                    for i in range(self._count_perp_terms()+1)]
-        xyrvdiag = [basexy + "rv" + self.name() + str(i+1)
-                    for i in range(self._count_perp_terms()+1)]
         pudiag = [basep + "u" + self.name() + str(i+2)
                   for i in range(self._count_perp_terms()-1)]
         pvdiag = [basep + "v" + self.name() + str(i+2)
                   for i in range(self._count_perp_terms()-1)]
-        prudiag = [basep + "ru" + self.name() + str(i+2)
-                   for i in range(self._count_perp_terms()-1)]
-        prvdiag = [basep + "rv" + self.name() + str(i+2)
-                   for i in range(self._count_perp_terms()-1)]
+
+        if self.use_4_components == component_options[1]:
+            xyrudiag = [basexy + "ru" + self.name() + str(i+1)
+                        for i in range(self._count_perp_terms()+1)]
+            xyrvdiag = [basexy + "rv" + self.name() + str(i+1)
+                        for i in range(self._count_perp_terms()+1)]
+            prudiag = [basep + "ru" + self.name() + str(i+2)
+                       for i in range(self._count_perp_terms()-1)]
+            prvdiag = [basep + "rv" + self.name() + str(i+2)
+                       for i in range(self._count_perp_terms()-1)]
+        else:
+            xyrudiag = []
+            xyrvdiag = []
+            prudiag = []
+            prvdiag = []
 
         return xyudiag, xyvdiag, pudiag, pvdiag, xyrudiag, xyrvdiag, prudiag, prvdiag
 
@@ -190,8 +201,8 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
         v['ra_mmin'] = 3
         v['ra_ngrid'] = 300
         v['ra_pmax'] = 15
-        v['An_mode'] = "kpara->0"
-        v['use_4_components'] = "xx-xy-yx-yy"
+        v['An_mode'] = anbn_options[0]
+        v['use_4_components'] = component_options[0]
         v['debug_option'] = ''
         return v
 
@@ -210,10 +221,9 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
     def panel1_param(self):
         panels = super(NonlocalJ2D_Jperp4, self).panel1_param()
         panels.extend([
-            ["An", None, 1, {"values": [
-                "kpara->0", "kpara from kz", "kpara from kz (w/o damping)"]}],
+            ["An", None, 1, {"values": anbn_options}],
             ["Components", None, 1, {
-                "values": ["xx only", "xx-xy-yx-yy"]}],
+                "values": component_options}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
             ["RA max kp*rho", None, 300, {}],
@@ -230,6 +240,12 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
 
     def get_panel1_value(self):
         values = super(NonlocalJ2D_Jperp4, self).get_panel1_value()
+
+        if self.An_mode not in anbn_options:
+            self.An_mode = anbn_options[0]
+        if self.use_4_components not in component_options:
+            self.use_4_components = component_options[0]
+
         values.extend([self.An_mode, self.use_4_components,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
@@ -329,7 +345,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
             if real:  # 1
                 one = mfem.ConstantCoefficient(1.0)
                 self.add_integrator(engine, '1', one, a.AddDomainIntegrator,
-                                    mfem.MassIntegrator)
+                                    mfem.VectorFEMassIntegrator)
         elif dep_var in pudiag+pvdiag+prudiag+prvdiag:
             message = "Add mass integrator contribution (jp)"
             if real:  # 1
@@ -417,7 +433,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                 ccoeff2 = ut_22*ccoeff_d - ut_22.dot(R2)*ccoeff_c  # r2^t = -r2
 
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
                 ccoeff2 = ut_22*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
@@ -466,37 +482,37 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                 ccoeff_c = (slot["xy"] - slot["xyi"]).conj()
                 ccoeff2 = ut_21*ccoeff_d + R2.dot(ut_21)*ccoeff_c
             else:
-                ccoeff = -1j*fac
+                ccoeff = (1j*fac).conj()
                 ccoeff2 = ut_21*ccoeff
 
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
 
-        elif c == Exyname and r == xyrudiag[-1]:
+        elif c == Exyname and r in xyrudiag[-1:]:
             u_22 = U[[0, 1], [0, 1]]
             ccoeff2 = -R1.dot(u_22)
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif c == Ezname and r == xyrudiag[-1]:
+        elif c == Ezname and r in xyrudiag[-1:]:
             u_12 = U[[0, 1], 2]
             ccoeff2 = -R1.dot(u_12)
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r == Exyname and c == xyrvdiag[-1]:
-            ccoeff = -1j*fac
+        elif r == Exyname and c in xyrvdiag[-1:]:
+            ccoeff = (1j*fac).conj()
             ut_22 = Ut[[0, 1], [0, 1]]
             ccoeff2 = R1.dot(ut_22)*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r == Ezname and c == xyrvdiag[-1]:
-            ccoeff = -1j*fac
+        elif r == Ezname and c in xyrvdiag[-1:]:
+            ccoeff = (1j*fac).conj()
             ut_12 = Ut[2, [0, 1]]
             ccoeff2 = R1.dot(ut_12)*ccoeff
             self.add_integrator(engine, 'cterm', ccoeff2,
@@ -519,21 +535,21 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r == Exyname and c == xyrudiag[-1]:
+        elif r == Exyname and c in xyrudiag[-1:]:
             ut_22 = Ut[[0, 1], [0, 1]]
             ccoeff2 = -ut_22.dot(R1)
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r == Ezname and c == xyrudiag[-1]:
+        elif r == Ezname and c in xyrudiag[-1:]:
             ut_12 = Ut[2, [0, 1]]
             ccoeff2 = -ut_12.dot(R1)
             self.add_integrator(engine, 'cterm', ccoeff2,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorMassIntegrator)
 
-        elif r in xyrudiag[:-1] and c == xyrudiag[-1]:
+        elif r in xyrudiag[:-1] and c in xyrudiag[-1:]:
             #curl-curl (Lp)
             idx = xyrudiag.index(r)
             if idx == 0:
@@ -546,7 +562,7 @@ class NonlocalJ2D_Jperp4(NonlocalJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedCurlCurlIntegrator)
 
-        elif r == xyrvdiag[-1] and c in xyrvdiag[:-1]:
+        elif r in xyrvdiag[-1:] and c in xyrvdiag[:-1]:
             #curl-curl (Lm)
             idx = xyrvdiag.index(c)
             if idx == 0:
