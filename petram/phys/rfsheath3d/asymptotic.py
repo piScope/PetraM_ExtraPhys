@@ -21,7 +21,19 @@ else:
 data = (('label1', VtableElement(None,
                                  guilabel='Asymptotic BC',
                                  default="",
-                                 tip="Dn = 0 (curl_t E_t = 0)")),)
+                                 tip="Dn = 0 (curl_t E_t = 0)")),
+        ('B', VtableElement('bext', type='array',
+                            guilabel='magnetic field',
+                            default="=[0,0,0]",
+                            tip="static magnetic field")),
+        ('temperature', VtableElement('temperature', type='float',
+                                      guilabel='temp.(eV)',
+                                      default="10.",
+                                      tip="temperature ")),
+        ('zsh_model', VtableElement('zsh_model', type='string',
+                                    guilabel='Vdc model',
+                                    default="myra17",
+                                    tip="sheath impedance model used to compute Vdc")),)
 
 try:
     from petram.phys.rfsheath3d.rfsheath3d_subs import (asymptotic_get_mixedbf_loc,
@@ -85,3 +97,18 @@ class RFsheath3D_Asymptotic(RFsheath3D_BaseDomain):
 
         add_mix_contribution2(self, mfem, engine, mbf, r, c,  is_trans, _is_conj,
                               real=real)
+
+    def add_domain_variables(self, v, n, suffix, ind_vars):
+        from petram.helper.variables import add_expression, add_constant
+        from petram.helper.variables import NativeCoefficientGenBase
+
+        if len(self._sel_index) == 0:
+            return
+
+        paired_model = self.get_root_phys().paired_model
+        mfem_physroot = self.get_root_phys().parent
+        em3d = mfem_physroot[paired_model]
+        freq, omega = em3d.get_freq_omega()
+
+        _label, mag, temp, zsh = self.vt.make_value_or_expression(self)
+        print("checking ", mag, temp, zsh)
