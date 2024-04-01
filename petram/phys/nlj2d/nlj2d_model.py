@@ -121,7 +121,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         else:
             pass
 
-    def add_mix_contribution2(self, engine, mbf, r, c,  is_trans, _is_conj,
+    def add_mix_contribution2(self, engine, mbf, r, c, is_trans, _is_conj,
                               real=True):
 
         root = self.get_root_phys()
@@ -172,7 +172,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[4] and r == Exyname:  # -j*omega*Jtx -> Exy
+        elif c == dep_vars[4] and r == Exyname:  # -j*omega*Jty -> Exy
             if real:
                 return
 
@@ -181,7 +181,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[5] and r == Ezname:  # -j*omega*Jtx -> Ez
+        elif c == dep_vars[5] and r == Ezname:  # -j*omega*Jtz -> Ez
             if real:
                 return
 
