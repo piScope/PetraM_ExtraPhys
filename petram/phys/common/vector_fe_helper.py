@@ -24,7 +24,7 @@ class VectorFEHelper_mxin():
         '''
         (A, m B) : A vector, B vector
 
-        M : matrix, vector (treated as diagnal matrix), or scalar
+        M : matrix, vector (treated as diagnal matrix), or scalar (treated as diagnoal)
         '''
 
         if isinstance(m, NumbaCoefficient):
@@ -35,10 +35,14 @@ class VectorFEHelper_mxin():
                     return
                 coeff1 = m[i]
             elif len(m.shape) == 0:
+                if i != j:
+                    return
                 coeff1 = m
             else:
                 assert False, "Tensor Coefficient not support"
         elif isinstance(m, mfem.Coefficient):
+            if i != j:
+                return
             coeff1 = m
         else:
             print("input", m)

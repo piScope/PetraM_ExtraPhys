@@ -404,8 +404,6 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             else:
                 if not real:
                     return
-                if rowi != colj:
-                    return
                 ccoeff = mfem.ConstantCoefficient(0.5)
 
             self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
@@ -422,8 +420,6 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
 
             if umode:
                 if not real:
-                    return
-                if rowi != colj:
                     return
                 ccoeff = mfem.ConstantCoefficient(-0.5)
             else:

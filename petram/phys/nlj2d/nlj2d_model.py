@@ -61,7 +61,11 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     data = (('label1', VtableElement(None,
                                      guilabel="Default domain couples non-local curent model with EM2D",
                                      default="",
-                                     tip="Defualt domain must be always on")),)
+                                     tip="Defualt domain must be always on")),
+            ('B', VtableElement('bext', type='array',
+                            guilabel='magnetic field',
+                            default="=[0,0,0]",
+                            tip="external magnetic field")),)
 
     can_delete = False
     is_secondary_condition = True
@@ -72,11 +76,23 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         v['sel_readonly'] = True
         v['sel_index_txt'] = 'all'
         return v
+    
+    @property
+    def jited_coeff(self):
+        return self._jited_coeff
+
+    def compile_coeffs(self):
+        ind_vars = self.get_root_phys().ind_vars
+
+        _none, B = self.vt.make_value_or_expression(self)
+        
+        from petram.phys.nlj2d.nlj2d_subs import build_coefficients
+        self._jitted_coeffs = build_coefficients(ind_vars, B, self._global_ns, self._local_ns,)
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check in [12, 13, 14, 2, 8, 9]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz
+        if check in [12, 13, 14, 15, 16, 17, 2, 8, 9]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz
             return True
         return False
 
@@ -96,14 +112,19 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
 
         loc = []
         loc.append((dep_vars[0], Exyname, 1, 1))   # Exs
-        loc.append((dep_vars[1], Exyname, 1, 1))   # Exs
-        loc.append((dep_vars[2], Ezname, 1, 1))   # Ezs
-
+        loc.append((dep_vars[1], Exyname, 1, 1))   # Eys
+        loc.append((dep_vars[2], Ezname, 1, 1))    # Ezs
+        loc.append((dep_vars[3], Exyname, 1, 1))   # Exps
+        loc.append((dep_vars[4], Exyname, 1, 1))   # Eyps
+        loc.append((dep_vars[5], Exyname, 1, 1))   # Eyps
+        loc.append((dep_vars[3], Ezname, 1, 1))    # Exps
+        loc.append((dep_vars[4], Ezname, 1, 1))    # Eyps
+        loc.append((dep_vars[5], Ezname, 1, 1))    # Ezps
         if root.no_J_E:
             return loc
-        loc.append((Exyname, dep_vars[3], 1, 1))   # Jtx -> Exy
-        loc.append((Exyname, dep_vars[4], 1, 1))   # Jty -> Exy
-        loc.append((Ezname, dep_vars[5], 1, 1))   # Jtz -> Ez
+        loc.append((Exyname, dep_vars[6], 1, 1))   # Jtx -> Exy
+        loc.append((Exyname, dep_vars[7], 1, 1))   # Jty -> Exy
+        loc.append((Ezname, dep_vars[8], 1, 1))    # Jtz -> Ez
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
@@ -137,6 +158,9 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         Exyname = var_s[0]
         Ezname = var_s[1]
 
+        b_mat = self._jitted_coeffs["M_perp"]        
+
+        ### E-total
         if c == Exyname and r == dep_vars[0]:   # Exy -> Exs
             if not real:
                 return
@@ -163,7 +187,60 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
 
-        elif c == dep_vars[3] and r == Exyname:  # -j*omega*Jtx -> Exy
+        ### E_perp
+        elif c == Exyname and r == dep_vars[3]:   # Exy -> Eperp_x
+            if not real:
+                return
+            coeff = b_mat[[0, 1], 0]
+            self.add_integrator(engine, 'Epx1', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDotProductIntegrator)
+
+        elif c == Ezname and r == dep_vars[3]:   # Exy -> Eperp_x
+            if not real:
+                return
+            coeff = b_mat[2, 0]
+            self.add_integrator(engine, 'Epx2', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+
+        elif c == Exyname and r == dep_vars[4]:   # Exy -> Eperp_y
+            if not real:
+                return
+
+            coeff = b_mat[[0, 1], 1]
+            self.add_integrator(engine, 'Epy1', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDotProductIntegrator)
+        elif c == Ezname and r == dep_vars[4]:   # Ez -> Eperp_y
+            if not real:
+                return
+
+            coeff = b_mat[2, 1]
+            self.add_integrator(engine, 'Epy2', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+
+        elif c == Exyname and r == dep_vars[5]:   # Exy -> Eperp_z
+            if not real:
+                return
+
+            coeff = b_mat[[0, 1], 2]
+            self.add_integrator(engine, 'Epz1', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDotProductIntegrator)
+
+        elif c == Ezname and r == dep_vars[5]:   # Ez -> Eperp_z
+            if not real:
+                return
+
+            coeff = b_mat[2, 2]
+            self.add_integrator(engine, 'Epz2', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+
+        ### J-total
+        elif c == dep_vars[6] and r == Exyname:  # -j*omega*Jtx -> Exy
             if real:
                 return
 
@@ -172,7 +249,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[4] and r == Exyname:  # -j*omega*Jty -> Exy
+        elif c == dep_vars[7] and r == Exyname:  # -j*omega*Jty -> Exy
             if real:
                 return
 
@@ -181,7 +258,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedVectorProductIntegrator)
 
-        elif c == dep_vars[5] and r == Ezname:  # -j*omega*Jtz -> Ez
+        elif c == dep_vars[8] and r == Ezname:  # -j*omega*Jtz -> Ez
             if real:
                 return
 
@@ -278,9 +355,9 @@ class NLJ2D(PhysModule):
     @property
     def nterms(self):
         '''
-        number of H1(Ex, Ey, Ez), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
+        number of H1(Ex, Ey, Ez), H1(Epx, Epy, Epz), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
         '''
-        return (3, 3,
+        return (6, 3,
                 self.nxterms,
                 self.nyterms,
                 self.nzterms,)
@@ -311,6 +388,9 @@ class NLJ2D(PhysModule):
                12: Exs (Ex in H1)
                13: Eys (Ey in H1)
                14: Eys (Ez in H1)
+               15: Exps (E-perp x in H1)
+               16: Eyps (E-perp y in H1)
+               17: Eyps (E-perp z in H1)
 
         '''
         dep_var = self.kfes2depvar(kfes)
@@ -320,11 +400,11 @@ class NLJ2D(PhysModule):
         jxname = self.get_root_phys().extra_vars_basex
         jyname = self.get_root_phys().extra_vars_basey
 
-        if dep_var == dep_vars[5]:
+        if dep_var == dep_vars[8]:
             return 2
-        elif dep_var == dep_vars[3]:
+        elif dep_var == dep_vars[6]:
             return 8
-        elif dep_var == dep_vars[4]:
+        elif dep_var == dep_vars[7]:
             return 9
         elif dep_var == dep_vars[0]:
             return 12
@@ -332,6 +412,12 @@ class NLJ2D(PhysModule):
             return 13
         elif dep_var == dep_vars[2]:
             return 14
+        elif dep_var == dep_vars[3]:
+            return 15
+        elif dep_var == dep_vars[4]:
+            return 16
+        elif dep_var == dep_vars[5]:
+            return 17
         elif dep_var.startswith(jzname):
             return 5
         elif dep_var.startswith(jxname):
@@ -345,10 +431,13 @@ class NLJ2D(PhysModule):
                     self.dep_vars_suffix)
         ret = []
 
-        ret.append(basename+"Exs")  # Exs
+        ret.append(basename+"Exs")  # Exs (E-total)
         ret.append(basename+"Eys")
         ret.append(basename+"Ezs")
-        ret.append(basename+"Jtx")
+        ret.append(basename+"Exps")  # Exps (E-perp)
+        ret.append(basename+"Eyps")
+        ret.append(basename+"Ezps")
+        ret.append(basename+"Jtx")   #Jt (J-total)
         ret.append(basename+"Jty")
         ret.append(basename+"Jtz")
 
@@ -427,7 +516,7 @@ class NLJ2D(PhysModule):
         fecs = []
 
         for vv in v:
-            if vv in v[:6]:
+            if vv in v[:9]:
                 fecs.append((vv, 'H1_FECollection'))
 
             elif vv.startswith(jxname):
@@ -471,6 +560,12 @@ class NLJ2D(PhysModule):
         elif flag == 13:  # Eys
             return self.order
         elif flag == 14:  # Ezs
+            return self.order
+        elif flag == 15:  # Exps
+            return self.order
+        elif flag == 16:  # Eyps
+            return self.order
+        elif flag == 17:  # Ezps
             return self.order
         else:
             assert False, "unsupported flag: "+str(flag)
