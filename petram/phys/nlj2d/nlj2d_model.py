@@ -63,9 +63,14 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                      default="Default domain couples non-local curent model with EM2D",
                                      tip="Defualt domain must be always on")),
             ('B', VtableElement('bext', type='array',
-                            guilabel='magnetic field',
-                            default="=[0,0,0]",
-                            tip="external magnetic field")),)
+                                guilabel='magnetic field',
+                                default="=[0,0,0]",
+                                tip="external magnetic field")),
+            ('kz', VtableElement('kz', type='float',
+                                 guilabel='kz',
+                                 default=0.,
+                                 no_func=True,
+                                 tip="wave number` in the z direction")),)
 
     can_delete = False
     is_secondary_condition = True
@@ -76,7 +81,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         v['sel_readonly'] = True
         v['sel_index_txt'] = 'all'
         return v
-    
+
     @property
     def jited_coeff(self):
         return self._jited_coeff
@@ -84,15 +89,16 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     def compile_coeffs(self):
         ind_vars = self.get_root_phys().ind_vars
 
-        _none, B = self.vt.make_value_or_expression(self)
-        
+        _none, B, _kz = self.vt.make_value_or_expression(self)
+
         from petram.phys.nlj2d.nlj2d_subs import build_coefficients
-        self._jitted_coeffs = build_coefficients(ind_vars, B, self._global_ns, self._local_ns,)
+        self._jitted_coeffs = build_coefficients(
+            ind_vars, B, self._global_ns, self._local_ns,)
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check in [12, 13, 14, 15, 16, 17, 2, 8, 9]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz
+        if check in [12, 13, 14, 15, 16, 17, 2, 8, 9, 18]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz, Jp
             return True
         return False
 
@@ -125,22 +131,40 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         loc.append((Exyname, dep_vars[6], 1, 1))   # Jtx -> Exy
         loc.append((Exyname, dep_vars[7], 1, 1))   # Jty -> Exy
         loc.append((Ezname, dep_vars[8], 1, 1))    # Jtz -> Ez
+        loc.append((dep_vars[9], dep_vars[6], 1, 1))    # Jtx -> Jp
+        loc.append((dep_vars[9], dep_vars[7], 1, 1))    # Jty -> Jp
+        loc.append((dep_vars[9], dep_vars[8], 1, 1))    # Jtz -> Jp
+        loc.append((Exyname, dep_vars[9], 1, 1))   # Jp -> Exy
+        loc.append((Ezname, dep_vars[9], 1, 1))    # Jp -> Ez
+
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         root = self.get_root_phys()
+        dep_vars = root.dep_vars
         dep_var = root.kfes2depvar(kfes)
+
+        _none, _B, kz = self.vt.make_value_or_expression(self)
 
         message = "smoothed E and total J"
 
-        if real:
-            one = mfem.ConstantCoefficient(1.0)
-            self.add_integrator(engine, 'mass', one, a.AddDomainIntegrator,
-                                mfem.MassIntegrator)
-            dprint1(message, "(real)",  dep_var, kfes)
+        if dep_var != dep_vars[9]:
+            if real:
+                one = mfem.ConstantCoefficient(1.0)
+                self.add_integrator(engine, 'mass', one, a.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+                dprint1(message, "(real)",  dep_var, kfes)
+            else:
+                pass
         else:
-            pass
+            # - nabla Jp + kz^2 Jp
+            one = mfem.ConstantCoefficient(1.0)
+            self.add_integrator(engine, 'diffusion', one, a.AddDomainIntegrator,
+                                mfem.DiffusionIntegrator)
+            one = mfem.ConstantCoefficient(kz**2)
+            self.add_integrator(engine, 'diffusion', one, a.AddDomainIntegrator,
+                                mfem.MassIntegrator)
 
     def add_mix_contribution2(self, engine, mbf, r, c, is_trans, _is_conj,
                               real=True):
@@ -158,9 +182,10 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         Exyname = var_s[0]
         Ezname = var_s[1]
 
-        b_mat = self._jitted_coeffs["M_perp"]        
+        b_mat = self._jitted_coeffs["M_perp"]
+        _none, _B, kz = self.vt.make_value_or_expression(self)
 
-        ### E-total
+        # E-total
         if c == Exyname and r == dep_vars[0]:   # Exy -> Exs
             if not real:
                 return
@@ -187,7 +212,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
 
-        ### E_perp
+        # E_perp
         elif c == Exyname and r == dep_vars[3]:   # Exy -> Eperp_x
             if not real:
                 return
@@ -239,7 +264,32 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
 
-        ### J-total
+        # Jx,Jy,Jz to J-p
+        elif c == dep_vars[6] and r == dep_vars[9]:  # dJx/dx
+            if not real:
+                return
+            coeff = mfem.VectorConstantCoefficient(mfem.Vector([1.0, 0.0]))
+            self.add_integrator(engine, 'cterm', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDirectionalDerivativeIntegrator)
+
+        elif c == dep_vars[7] and r == dep_vars[9]:   # dJy/dy
+            if not real:
+                return
+            coeff = mfem.VectorConstantCoefficient(mfem.Vector([0.0, 1.0]))
+            self.add_integrator(engine, 'cterm', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedDirectionalDerivativeIntegrator)
+
+        elif c == dep_vars[8] and r == dep_vars[9]:    # i kz Jz
+            if real:
+                return
+            coeff = mfem.ConstantCoefficient(kz)
+            self.add_integrator(engine, 'cterm', coeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+
+        # J-total
         elif c == dep_vars[6] and r == Exyname:  # -j*omega*Jtx -> Exy
             if real:
                 return
@@ -266,6 +316,24 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             self.add_integrator(engine, 'cterm', ccoeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
+
+        # grad Jp
+        elif c == dep_vars[9] and r == Exyname:  # j*omega*gradJp -> Exy
+            if real:
+                return
+            ccoeff = mfem.ConstantCoefficient(omega)
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedVectorGradientIntegrator)
+
+        elif c == dep_vars[9] and r == Ezname:  # -omega*kz*dJp -> Ez
+            if not real:
+                return
+            ccoeff = mfem.ConstantCoefficient(-omega*kz)
+            self.add_integrator(engine, 'cterm', ccoeff,
+                                mbf.AddDomainIntegrator,
+                                mfem.MixedScalarMassIntegrator)
+
         else:
             assert False, "Should not come here: " + r + "/" + c
 
@@ -355,9 +423,9 @@ class NLJ2D(PhysModule):
     @property
     def nterms(self):
         '''
-        number of H1(Ex, Ey, Ez), H1(Epx, Epy, Epz), H1(Jx, Jy, Jz), H1(x), H1 (y), H1(z)
+        number of H1(Ex, Ey, Ez), H1(Epx, Epy, Epz), H1(Jx, Jy, Jz, Jp), H1(x), H1 (y), H1(z)
         '''
-        return (6, 3,
+        return (6, 4,
                 self.nxterms,
                 self.nyterms,
                 self.nzterms,)
@@ -391,6 +459,7 @@ class NLJ2D(PhysModule):
                15: Exps (E-perp x in H1)
                16: Eyps (E-perp y in H1)
                17: Eyps (E-perp z in H1)
+               18: Jp   (divJ - grad Jp = 0 : term for divergence cleaning)
 
         '''
         dep_var = self.kfes2depvar(kfes)
@@ -402,6 +471,8 @@ class NLJ2D(PhysModule):
 
         if dep_var == dep_vars[8]:
             return 2
+        elif dep_var == dep_vars[9]:
+            return 18
         elif dep_var == dep_vars[6]:
             return 8
         elif dep_var == dep_vars[7]:
@@ -437,9 +508,10 @@ class NLJ2D(PhysModule):
         ret.append(basename+"Exps")  # Exps (E-perp)
         ret.append(basename+"Eyps")
         ret.append(basename+"Ezps")
-        ret.append(basename+"Jtx")   #Jt (J-total)
+        ret.append(basename+"Jtx")  # Jt (J-total)
         ret.append(basename+"Jty")
         ret.append(basename+"Jtz")
+        ret.append(basename+"Jp")
 
         for x in self["Domain"].walk_enabled():
             if x.count_x_terms() > 0:
@@ -566,6 +638,8 @@ class NLJ2D(PhysModule):
         elif flag == 16:  # Eyps
             return self.order
         elif flag == 17:  # Ezps
+            return self.order
+        elif flag == 18:  # Jp
             return self.order
         else:
             assert False, "unsupported flag: "+str(flag)
@@ -715,43 +789,3 @@ class NLJ2D(PhysModule):
         add_scalar(v, name, "", ind_vars, solr, soli)
 
         return v
-
-        '''
-        dep_vars = self.dep_vars
-        sdim = self.geom_dim
-
-        # x
-        xnames = []
-        basename = self.extra_vars_basex
-        xnames.append(basename)
-        for x in self["Domain"].walk_enabled():
-            if x.count_x_terms() > 0:
-                xnames.extend(x.get_jx_names())
-
-        if name in xnames:
-            add_scalar(v, name, suffix, ind_vars, solr, soli)
-
-        # y
-        ynames = []
-        basename = self.extra_vars_basey
-        ynames.append(basename)
-        for x in self["Domain"].walk_enabled():
-            if x.count_y_terms() > 0:
-                ynames.extend(x.get_jy_names())
-
-        if name in ynames:
-            add_scalar(v, name, suffix, ind_vars, solr, soli)
-
-        # z
-        znames = []
-        basename = self.extra_vars_basez
-        znames.append(basename)
-        for x in self["Domain"].walk_enabled():
-            if x.count_z_terms() > 0:
-                znames.extend(x.get_jz_names())
-
-        if name in znames:
-            add_scalar(v, name, suffix, ind_vars, solr, soli)
-
-        return v
-        '''
