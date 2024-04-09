@@ -59,8 +59,8 @@ class NLJ2D_BaseDomain(Domain, Phys):
 
 class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     data = (('label1', VtableElement(None,
-                                     guilabel="Default domain couples non-local curent model with EM2D",
-                                     default="",
+                                     guilabel=None,
+                                     default="Default domain couples non-local curent model with EM2D",
                                      tip="Defualt domain must be always on")),
             ('B', VtableElement('bext', type='array',
                             guilabel='magnetic field',

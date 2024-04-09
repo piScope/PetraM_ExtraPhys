@@ -285,12 +285,15 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
 
         loc = []
         for n in all_names:
-            loc.append((n, dep_vars[0], 1, 1))
-            loc.append((n, dep_vars[1], 1, 1))
-            loc.append((n, dep_vars[2], 1, 1))
-            loc.append((dep_vars[3], n,  1, 1))
-            loc.append((dep_vars[4], n,  1, 1))
-            loc.append((dep_vars[5], n,  1, 1))
+            #loc.append((n, dep_vars[0], 1, 1))
+            #loc.append((n, dep_vars[1], 1, 1))
+            #loc.append((n, dep_vars[2], 1, 1))
+            loc.append((n, dep_vars[3], 1, 1))
+            loc.append((n, dep_vars[4], 1, 1))
+            loc.append((n, dep_vars[5], 1, 1))
+            loc.append((dep_vars[6], n,  1, 1))
+            loc.append((dep_vars[7], n,  1, 1))
+            loc.append((dep_vars[8], n,  1, 1))
 
         return loc
 
@@ -340,6 +343,8 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         if idx != 0:
             message = "Add diffusion + mass integrator contribution"
             mat = self._jitted_coeffs["M_perp"]
+            self.fill_divgrad_matrix(engine, a, 0, 0, mat, real, kz=kz)
+            '''
             if real:
                 mat2 = -mat[[0, 1], [0, 1]]
                 self.add_integrator(engine, 'diffusion', mat2, a.AddDomainIntegrator,
@@ -354,7 +359,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
                 mat2 = 1j*kz*mat[[0, 1], [2]]
                 self.add_integrator(engine, '21', mat2, a.AddDomainIntegrator,
                                     mfem.MixedScalarWeakDivergenceIntegrator)
-
+            '''
             if umode:
                 dterm = self._jitted_coeffs["dterms"][idx-1]
             else:
@@ -382,6 +387,8 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         root = self.get_root_phys()
         dep_vars = root.dep_vars  # "Exs, Exy, Jtx, Jty, Jtz"
         names = self.current_names_xyz()
+        _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
+            self)
 
         if real:
             dprint1("Add mixed cterm contribution(real)"  "r/c",
@@ -390,9 +397,9 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             dprint1("Add mixed cterm contribution(imag)"  "r/c",
                     row, col, is_trans)
 
-        if col in dep_vars[:3]:   # Exs, Exy, Exz -> Ju, Jv
+        if col in dep_vars[3:6]:   # Eperp -> Ju, Jv
             idx, umode, rowi = self._get_dep_var_idx(row, names)
-            colj = dep_vars[:3].index(col)
+            colj = dep_vars[3:6].index(col)
 
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
@@ -400,18 +407,22 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                ccoeff = slot["(diag+diagi)*M"]
+                ccoeff = slot["diag+diagi"]
+                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+                ccoeff = slot["(diag1+diagi1)*Mpara"]
+                self.fill_divgrad_matrix(
+                    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             else:
                 if not real:
                     return
                 ccoeff = mfem.ConstantCoefficient(0.5)
+                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
 
-            self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
             return
 
-        if row in dep_vars[3:6]:  # Ju, Jv -> Jt
+        if row in dep_vars[6:9]:  # Ju, Jv -> Jt
             idx, umode, colj = self._get_dep_var_idx(col, names)
-            rowi = dep_vars[3:6].index(row)
+            rowi = dep_vars[6:9].index(row)
 
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
@@ -422,10 +433,14 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
                 if not real:
                     return
                 ccoeff = mfem.ConstantCoefficient(-0.5)
-            else:
-                ccoeff = slot["conj(diag-diagi)*M"]
+                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
 
-            self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+            else:
+                ccoeff = slot["conj(diag-diagi)"]
+                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+                ccoeff = slot["conj(diag1-diagi1)*Mpara"]
+                self.fill_divgrad_matrix(
+                    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)

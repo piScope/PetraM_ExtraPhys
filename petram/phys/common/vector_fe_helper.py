@@ -51,3 +51,32 @@ class VectorFEHelper_mxin():
         self.add_integrator(engine, 'cterm', coeff1,
                             form.AddDomainIntegrator,
                             mfem.MixedScalarMassIntegrator)
+
+    def fill_divgrad_matrix(self, engine, mbf, i, j, coeff, real, kz=None):
+        '''
+        - div grad vec(v) : vector Laplacian
+
+        Matrix coeff can be M_perp or M_para to define perp and para of
+        vector Laplacian.
+
+        '''
+        if i != j:
+            return
+        if kz is not None:
+            if real:
+                mat2 = -coeff[[0, 1], [0, 1]]
+                self.add_integrator(engine, 'diffusion', mat2, mbf.AddDomainIntegrator,
+                                    mfem.DiffusionIntegrator)
+                mat2 = (-kz**2)*coeff[[2], [2]]
+                self.add_integrator(engine, 'mass', mat2, mbf.AddDomainIntegrator,
+                                    mfem.MassIntegrator)
+            else:
+                mat2 = 1j*kz*coeff[[2], [0, 1]]
+                self.add_integrator(engine, '12', mat2, mbf.AddDomainIntegrator,
+                                    mfem.MixedDirectionalDerivativeIntegrator)
+                mat2 = 1j*kz*coeff[[0, 1], [2]]
+                self.add_integrator(engine, '21', mat2, mbf.AddDomainIntegrator,
+                                    mfem.MixedScalarWeakDivergenceIntegrator)
+
+        else:
+            assert False, "diffusion operator is supported only for 2D geom"
