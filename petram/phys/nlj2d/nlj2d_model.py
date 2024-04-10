@@ -134,8 +134,9 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         loc.append((dep_vars[9], dep_vars[6], 1, 1))    # Jtx -> Jp
         loc.append((dep_vars[9], dep_vars[7], 1, 1))    # Jty -> Jp
         loc.append((dep_vars[9], dep_vars[8], 1, 1))    # Jtz -> Jp
-        loc.append((Exyname, dep_vars[9], 1, 1))   # Jp -> Exy
-        loc.append((Ezname, dep_vars[9], 1, 1))    # Jp -> Ez
+        #
+        #loc.append((Exyname, dep_vars[9], 1, 1))   # Jp -> Exy
+        #loc.append((Ezname, dep_vars[9], 1, 1))    # Jp -> Ez
 
         return loc
 
