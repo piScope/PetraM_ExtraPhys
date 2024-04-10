@@ -191,7 +191,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         elif c == Exyname and r == dep_vars[3]:   # Exy -> Eperp_x
             if not real:
                 return
-            coeff = b_mat[[0, 1], 0]
+            coeff = -b_mat[[0, 1], 0]
             self.add_integrator(engine, 'Epx1', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
@@ -199,7 +199,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         elif c == Ezname and r == dep_vars[3]:   # Exy -> Eperp_x
             if not real:
                 return
-            coeff = b_mat[2, 0]
+            coeff = -b_mat[2, 0]
             self.add_integrator(engine, 'Epx2', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
@@ -208,7 +208,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            coeff = b_mat[[0, 1], 1]
+            coeff = -b_mat[[0, 1], 1]
             self.add_integrator(engine, 'Epy1', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
@@ -216,7 +216,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            coeff = b_mat[2, 1]
+            coeff = -b_mat[2, 1]
             self.add_integrator(engine, 'Epy2', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
@@ -225,7 +225,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            coeff = b_mat[[0, 1], 2]
+            coeff = -b_mat[[0, 1], 2]
             self.add_integrator(engine, 'Epz1', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedDotProductIntegrator)
@@ -234,7 +234,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if not real:
                 return
 
-            coeff = b_mat[2, 2]
+            coeff = -b_mat[2, 2]
             self.add_integrator(engine, 'Epz2', coeff,
                                 mbf.AddDomainIntegrator,
                                 mfem.MixedScalarMassIntegrator)
