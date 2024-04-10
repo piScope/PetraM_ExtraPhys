@@ -588,7 +588,7 @@ class NLJ2D(PhysModule):
         fecs = []
 
         for vv in v:
-            if vv in v[:9]:
+            if vv in v[:10]:
                 fecs.append((vv, 'H1_FECollection'))
 
             elif vv.startswith(jxname):
