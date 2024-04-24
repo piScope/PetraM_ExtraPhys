@@ -409,9 +409,9 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             if umode:
                 ccoeff = slot["diag+diagi"]
                 self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
-                ccoeff = slot["(diag1+diagi1)*Mpara"]
-                self.fill_divgrad_matrix(
-                    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+                #ccoeff = slot["(diag1+diagi1)*Mpara"]
+                #self.fill_divgrad_matrix(
+                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             else:
                 if not real:
                     return
@@ -438,9 +438,9 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
             else:
                 ccoeff = slot["conj(diag-diagi)"]
                 self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
-                ccoeff = slot["conj(diag1-diagi1)*Mpara"]
-                self.fill_divgrad_matrix(
-                    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+                #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
+                #self.fill_divgrad_matrix(
+                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)

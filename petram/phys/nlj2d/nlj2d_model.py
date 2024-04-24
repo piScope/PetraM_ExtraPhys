@@ -98,7 +98,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
-        if check in [12, 13, 14, 15, 16, 17, 2, 8, 9, 18]:  # Exs, Eys, Ezs, Jtx, Jty, Jtz, Jp
+        if check in [12, 13, 14, 15, 16, 17, 2, 8, 9, 18]:  # Exs, Eys, Ezs, Exps, Eypx, Ezps, Jtx, Jty, Jtz, Jp
             return True
         return False
 
