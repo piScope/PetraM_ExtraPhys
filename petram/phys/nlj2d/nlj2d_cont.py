@@ -3,10 +3,9 @@ from petram.phys.vtable import VtableElement, Vtable
 from petram.mfem_config import use_parallel
 import numpy as np
 
-from petram.model import Domain, Bdry, Edge, Point, Pair
 from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
-from petram.phys.phys_cont import PhysContinuity
+from petram.phys.nlj2d.nlj2d_model import NLJ2D_BaseBdry
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Continuity')
@@ -21,5 +20,10 @@ def bdry_constraints():
     return [NLJ2D_Continuity]
 
 
-class NLJ2D_Continuity(PhysContinuity):
-    pass
+class NLJ2D_Continuity(NLJ2D_BaseBdry):
+    is_essential = False
+
+    def __init__(self, **kwargs):
+        super(NLJ2D_Continuity, self).__init__(**kwargs)
+        self.sel_readonly = False
+        self.sel_index = []
