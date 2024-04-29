@@ -24,7 +24,7 @@ if use_parallel:
 else:
     import mfem.ser as mfem
 
-data = (('B', VtableElement('bext', type='array',
+data = (('B', VtableElement('bext', type='any',
                             guilabel='magnetic field',
                             default="=[0,0,0]",
                             tip="external magnetic field")),
@@ -65,7 +65,7 @@ component_options = ("mass", "mass + curlcurl")
 anbn_options = ("kpara->0 + col.", "kpara from kz")
 
 
-class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
+class NLJ2D_Jxx(NLJ2D_BaseDomain):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
@@ -73,6 +73,10 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
 
     def __init__(self, **kwargs):
         super(NLJ2D_Jxx, self).__init__(**kwargs)
+
+    @property
+    def need_pe(self):
+        return True
 
     def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -107,47 +111,31 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
 
         return int(self._nperpterms)
 
-    def get_jx_names(self):
+    def get_ju_names(self):
         names = self.current_names_xyz()
-        return names[0] + names[1]
+        return names[0]
 
-    def get_jy_names(self):
+    def get_jv_names(self):
         names = self.current_names_xyz()
-        return names[2] + names[3]
+        return names[1]
 
-    def get_jz_names(self):
-        names = self.current_names_xyz()
-        return names[4] + names[5]
+    def count_u_terms(self):
+        return len(self.get_ju_names())
 
-    def count_x_terms(self):
+    def count_v_terms(self):
         return len(self.get_jx_names())
-
-    def count_y_terms(self):
-        return len(self.get_jy_names())
-
-    def count_z_terms(self):
-        return len(self.get_jz_names())
 
     def current_names_xyz(self):
         # all possible names without considering run-condition
-        basex = self.get_root_phys().extra_vars_basex
-        basey = self.get_root_phys().extra_vars_basey
-        basez = self.get_root_phys().extra_vars_basez
+        baseu = self.get_root_phys().extra_vars_baseu
+        basev = self.get_root_phys().extra_vars_basev
 
-        xudiag = [basex + "u" + self.name() + str(i+1)
-                  for i in range(self._count_perp_terms())]
-        xvdiag = [basex + "v" + self.name() + str(i+1)
-                  for i in range(self._count_perp_terms())]
-        yudiag = [basey + "u" + self.name() + str(i+1)
-                  for i in range(self._count_perp_terms())]
-        yvdiag = [basey + "v" + self.name() + str(i+1)
-                  for i in range(self._count_perp_terms())]
-        zudiag = [basez + "u" + self.name() + str(i+1)
-                  for i in range(self._count_perp_terms())]
-        zvdiag = [basez + "v" + self.name() + str(i+1)
-                  for i in range(self._count_perp_terms())]
+        udiag = [basex + "u" + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
+        vdiag = [basex + "v" + self.name() + str(i+1)
+                 for i in range(self._count_perp_terms())]
 
-        return xudiag, xvdiag, yudiag, yvdiag, zudiag, zvdiag
+        return udiag, vdiag
 
     @property
     def jited_coeff(self):
@@ -257,17 +245,15 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
         dep_var = root.kfes2depvar(kfes)
 
         names = self.current_names_xyz()
-        xudiag, xvdiag, yudiag, yvdiag, zudiag, zvdiag = names
-        all_names = xudiag + xvdiag + yudiag + yvdiag + zudiag + zvdiag
+        udiag, vdiag = names
+        all_names = udiag + vdiag
 
         if dep_var not in all_names:
             return False
 
-        if check == 6:     # jx
+        if check == 18:     # u-component
             return True
-        elif check == 7:   # jy
-            return True
-        elif check == 5:   # jz
+        elif check == 19:   # v-component
             return True
         else:
             return False
@@ -277,11 +263,11 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain, VectorFEHelper_mxin):
 
     def get_mixedbf_loc(self):
         names = self.current_names_xyz()
-        xudiag, xvdiag, yudiag, yvdiag, zudiag, zvdiag = names
-        all_names = xudiag + xvdiag + yudiag + yvdiag + zudiag + zvdiag
+        udiag, vdiag = names
+        all_names = udiag + vdiag
 
         root = self.get_root_phys()
-        dep_vars = root.dep_vars  # "Exs, Exy, Jtx, Jty, Jtz"
+        dep_vars = root.dep_vars  # "E, Epe, Jt" or  "E, Epe, Epa, Jt"
 
         loc = []
         for n in all_names:

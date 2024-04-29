@@ -56,12 +56,20 @@ class NLJ2DMixIn():
         return []
 
     @property
+    def use_e(self):
+        return self.get_root_phys().use_e
+
+    @property
     def use_pe(self):
         return self.get_root_phys().use_pe
 
     @property
     def use_pa(self):
         return self.get_root_phys().use_pa
+
+    @property
+    def need_e(self):
+        return False
 
     @property
     def need_pe(self):
@@ -126,61 +134,20 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     def jited_coeff(self):
         return self._jited_coeff
 
-    @property
-    def need_pe(self):
-        return True
-
     def compile_coeffs(self):
 
         _none, bfunc = self.vt.make_value_or_expression(self)
 
-        #from petram.phys.nlj2d.nlj2d_subs import build_coefficients
-        #self._jitted_coeffs = build_coefficients(ind_vars, B, self._global_ns, self._local_ns,)
+        root = self.get_root_phys()
+        mfem_physroot = root.parent
+        em2d = mfem_physroot[root.paired_model]
+        freq, omega = em2d.get_freq_omega()
+        ind_vars = root.ind_vars
 
-        @njit("float64[:, ::1](float64, float64)")
-        def b_perp(x, y):
-            bfield = bfunc(x, y)
-            bnorm = np.sqrt(bfield[0]**2 + bfield[1]**2 + bfield[2]**2)
+        from petram.phys.nlj2d.nlj2d_subs import build_coefficients
 
-            b_x = bfield[0]/bnorm
-            b_y = bfield[1]/bnorm
-            b_z = bfield[2]/bnorm
-
-            return np.array([[1.-b_x*b_x, -b_x*b_y, -b_x*b_z],
-                             [-b_x*b_y, 1.-b_y*b_y, -b_y*b_z],
-                             [-b_x*b_z, -b_y*b_z, 1.-b_z*b_z]])
-
-        @njit("float64[:, ::1](float64, float64)")
-        def b_para(x, y):
-            bfield = bfunc(x, y)
-            bnorm = np.sqrt(bfield[0]**2 + bfield[1]**2 + bfield[2]**2)
-
-            b_x = bfield[0]/bnorm
-            b_y = bfield[1]/bnorm
-            b_z = bfield[2]/bnorm
-
-            return np.array([[b_x*b_x, b_x*b_y, b_x*b_z],
-                             [b_x*b_y, b_y*b_y, b_y*b_z],
-                             [b_x*b_z, b_y*b_z, b_z*b_z]])
-
-        @njit("float64[:, :](float64, float64)")
-        def b_perp_xy(x, y):
-            return b_perp(x, y)[:, :2]
-
-        @njit("float64[:, :](float64, float64)")
-        def b_perp_z(x, y):
-            return np.ascontiguousarray(b_perp(x, y)[:, 2]).reshape(3, 1)
-
-        @njit("float64[:, :](float64, float64)")
-        def b_para_xy(x, y):
-            return b_para(x, y)[:, :2]
-
-        @njit("float64[:, :](float64, float64)")
-        def b_para_z(x, y):
-            return np.ascontiguousarray(b_para(x, y)[:, 2]).reshape(3, 1)
-
-        self._jitted_coeffs = (b_perp, b_para, b_perp_xy,
-                               b_perp_z, b_para_xy, b_para_z)
+        self._jitted_coeffs = build_coefficients(ind_vars, bfunc, omega,
+                                                 self._global_ns, self._local_ns,)
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
@@ -203,7 +170,9 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         Exyname = var_s[0]
         Ezname = var_s[1]
 
-        l = 1
+        l = 0
+        if self.use_e:
+            l += 1
         if self.use_pe:
             l += 1
         if self.use_pa:
@@ -271,14 +240,11 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                def func(_ptx):
-                    return np.array([[-1, 0.], [0, -1.], [0, 0.]])
+                coeff = self._jitted_coeffs["proj_xy"]
             elif flag == 22:
-                def func(ptx):
-                    return -b_perp_xy(ptx[0], ptx[1])
+                coeff = self._jitted_coeffs["b_perp_xy"]
             else:
-                def func(ptx):
-                    return -b_para_xy(ptx[0], ptx[1])
+                coeff = self._jitted_coeffs["b_para_xy"]
             shape = (3, 2)
 
         elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
@@ -289,14 +255,11 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                def func(_ptx):
-                    return np.array([[0], [0, ], [-1]])
+                coeff = self._jitted_coeffs["proj_z"]
             elif flag == 22:
-                def func(ptx):
-                    return -b_perp_z(ptx[0], ptx[1])
+                coeff = self._jitted_coeffs["b_perp_z"]
             else:
-                def func(ptx):
-                    return -b_para_z(ptx[0], ptx[1])
+                coeff = self._jitted_coeffs["b_para_z"]
             shape = (3, 1)
 
         elif r == Exyname:  # -j*omega*Jty -> Exy
@@ -306,8 +269,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            def func(_ptx):
-                return np.array([[-omega, 0, 0.], [0, -omega, 0.]])
+            coeff = self._jitted_coeffs["jomega_xy"]
             shape = (2, 3)
 
         elif r == Ezname:  # -j*omega*Jty -> Ez
@@ -317,14 +279,13 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            def func(_ptx):
-                return np.array([[0., 0, -omega], ])
+            coeff = self._jitted_coeffs["jomega_z"]
             shape = (1, 3)
         else:
             assert False, "should not come here"
 
         self.add_integrator(engine, 'mass',
-                            func,
+                            coeff,
                             mbf.AddDomainIntegrator,
                             PyVectorMassIntegrator,
                             itg_params=shape)
@@ -406,7 +367,9 @@ class NLJ2D(PhysModule):
         '''
         number of terms
         '''
-        values = [1]
+        values = [0]
+        if self.use_e:
+            values.append(1)
         if self.use_pe:
             values.append(1)
         if self.use_pa:
@@ -426,7 +389,9 @@ class NLJ2D(PhysModule):
         return dep_var
 
     def check_kfes(self, kfes):
-        values = [21]
+        values = []
+        if self.use_e:
+            values.append(21)
         if self.use_pe:
             values.append(22)
         if self.use_pa:
@@ -454,7 +419,8 @@ class NLJ2D(PhysModule):
                     self.dep_vars_suffix)
         ret = []
 
-        ret.append(basename+"E")    # E vector (H1-3)
+        if self.use_e:
+            ret.append(basename+"E")    # E vector (H1-3)
         if self.use_pe:
             ret.append(basename+"Epe")  # E pe vector (H1-3)
         if self.use_pa:
@@ -485,6 +451,12 @@ class NLJ2D(PhysModule):
         return basename
 
     @property
+    def extra_vars_baseu(self):
+        base = self.dep_vars_base_txt
+        basename = base+self.dep_vars_suffix + "u"
+        return basename
+
+    @property
     def der_vars(self):
         return []
 
@@ -509,6 +481,14 @@ class NLJ2D(PhysModule):
         for x in self.walk_enabled():
             if hasattr(x, "need_pa"):
                 if x.need_pa:
+                    return True
+        return False
+
+    @property
+    def use_e(self):
+        for x in self.walk_enabled():
+            if hasattr(x, "need_e"):
+                if x.need_e:
                     return True
         return False
 
