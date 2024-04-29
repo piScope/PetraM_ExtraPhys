@@ -24,7 +24,7 @@ from petram.phys.phys_model import Phys, PhysModule
 from petram.phys.vtable import VtableElement, Vtable
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Model')
+dprint1, dprint2, dprint3 = debug.init_dprints('NLJ1D_Model')
 
 if use_parallel:
     import mfem.par as mfem
@@ -32,7 +32,7 @@ else:
     import mfem.ser as mfem
 
 txt_predefined = ''
-model_basename = 'NLJ2D'
+model_basename = 'NLJ1D'
 
 try:
     import petram.phys.nonlocalj2d.nonlocal2d_subs_xxyy
@@ -42,7 +42,7 @@ except:
         sys.modules[__name__].dependency_invalid = True
 
 
-class NLJ2DMixIn():
+class NLJ1DMixIn():
     def count_v_terms(self):
         return 0
 
@@ -80,40 +80,40 @@ class NLJ2DMixIn():
         return False
 
 
-class NLJ2D_BaseDomain(Domain, Phys, NLJ2DMixIn):
+class NLJ1D_BaseDomain(Domain, Phys, NLJ1DMixIn):
     def __init__(self, **kwargs):
         Domain.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJ1DMixIn.__init__(self)
 
 
-class NLJ2D_BaseBdry(Bdry, Phys, NLJ2DMixIn):
+class NLJ1D_BaseBdry(Bdry, Phys, NLJ1DMixIn):
     def __init__(self, **kwargs):
         Bdry.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJ1DMixIn.__init__(self)
     pass
 
 
-class NLJ2D_BasePoint(Point, Phys, NLJ2DMixIn):
+class NLJ1D_BasePoint(Point, Phys, NLJ1DMixIn):
     def __init__(self, **kwargs):
         Point.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJ1DMixIn.__init__(self)
     pass
 
 
-class NLJ2D_BasePair(Pair, Phys, NLJ2DMixIn):
+class NLJ1D_BasePair(Pair, Phys, NLJ1DMixIn):
     def __init__(self, **kwargs):
         Pair.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJ1DMixIn.__init__(self)
 
 
-class NLJ2D_DefDomain(NLJ2D_BaseDomain):
+class NLJ1D_DefDomain(NLJ1D_BaseDomain):
     data = (('label1', VtableElement(None,
                                      guilabel=None,
-                                     default="Default domain couples non-local curent model with EM2D",
+                                     default="Default domain couples non-local curent model with EM1D",
                                      tip="Defualt domain must be always on")),
             ('B', VtableElement('bext', type='any',
                                 guilabel='magnetic field',
@@ -125,7 +125,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
     vt = Vtable(data)
 
     def attribute_set(self, v):
-        super(NLJ2D_DefDomain, self).attribute_set(v)
+        super(NLJ1D_DefDomain, self).attribute_set(v)
         v['sel_readonly'] = True
         v['sel_index_txt'] = 'all'
         return v
@@ -140,8 +140,8 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
 
         root = self.get_root_phys()
         mfem_physroot = root.parent
-        em2d = mfem_physroot[root.paired_model]
-        freq, omega = em2d.get_freq_omega()
+        em1d = mfem_physroot[root.paired_model]
+        freq, omega = em1d.get_freq_omega()
         ind_vars = root.ind_vars
 
         from petram.phys.nlj2d.nlj2d_subs import build_coefficients
@@ -167,8 +167,9 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         mfem_physroot = root.parent
         var_s = mfem_physroot[paired_model].dep_vars
 
-        Exyname = var_s[0]
-        Ezname = var_s[1]
+        Exname = var_s[0]
+        Eyname = var_s[1]
+        Ezname = var_s[2]
 
         l = 0
         if self.use_e:
@@ -180,13 +181,15 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
 
         loc = []
         for i in range(l):
-            loc.append((dep_vars[i], Exyname, 1, 1))   # Exy -> Ev
+            loc.append((dep_vars[i], Exname, 1, 1))    # Ex -> Ev
+            loc.append((dep_vars[i], Eyname, 1, 1))    # Ey -> Ev
             loc.append((dep_vars[i], Ezname, 1, 1))    # Ez -> Ev
 
         if root.no_J_E:
             return loc
-        loc.append((Exyname, dep_vars[l], 1, 1))  # Jt -> Exy
-        loc.append((Ezname, dep_vars[l], 1, 1))   # Jt -> Ez
+        loc.append((Exname, dep_vars[l], 1, 1))  # Jt -> Ex
+        loc.append((Eyname, dep_vars[l], 1, 1))  # Jt -> Eyy
+        loc.append((Ezname, dep_vars[l], 1, 1))  # Jt -> Ez
 
         return loc
 
@@ -216,10 +219,10 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
 
         paired_model = root.paired_model
         mfem_physroot = root.parent
-        em2d = mfem_physroot[paired_model]
+        em1d = mfem_physroot[paired_model]
 
-        var_s = em2d.dep_vars
-        freq, omega = em2d.get_freq_omega()
+        var_s = em1d.dep_vars
+        freq, omega = em1d.get_freq_omega()
 
         Exyname = var_s[0]
         Ezname = var_s[1]
@@ -230,6 +233,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         # 22: Evpe (vector E perp)
         # 23: Evpa (vector E para)
 
+        _b_perp, _b_para, b_perp_xy, b_perp_z, b_para_xy, b_para_z = self._jitted_coeffs
         from petram.helper.pybilininteg import PyVectorMassIntegrator
         if c == Exyname:  # Exy -> Ev, Evpe, Evpa
             if not real:
@@ -290,15 +294,15 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                             itg_params=shape)
 
 
-class NLJ2D_DefBdry(NLJ2D_BaseBdry):
+class NLJ1D_DefBdry(NLJ1D_BaseBdry):
     can_delete = False
     is_essential = False
 
     def __init__(self, **kwargs):
-        super(NLJ2D_DefBdry, self).__init__(**kwargs)
+        super(NLJ1D_DefBdry, self).__init__(**kwargs)
 
     def attribute_set(self, v):
-        super(NLJ2D_DefBdry, self).attribute_set(v)
+        super(NLJ1D_DefBdry, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = ['remaining']
         return v
@@ -307,43 +311,43 @@ class NLJ2D_DefBdry(NLJ2D_BaseBdry):
         return []
 
 
-class NLJ2D_DefPoint(NLJ2D_BasePoint):
+class NLJ1D_DefPoint(NLJ1D_BasePoint):
     can_delete = False
     is_essential = False
 
     def __init__(self, **kwargs):
-        super(NLJ2D_DefPoint, self).__init__(**kwargs)
+        super(NLJ1D_DefPoint, self).__init__(**kwargs)
 
     def attribute_set(self, v):
-        super(NLJ2D_DefPoint, self).attribute_set(v)
+        super(NLJ1D_DefPoint, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = ['']
         return v
 
 
-class NLJ2D_DefPair(NLJ2D_BasePair):
+class NLJ1D_DefPair(NLJ1D_BasePair):
     can_delete = False
     is_essential = False
     is_complex = False
 
     def __init__(self, **kwargs):
-        super(NLJ2D_DefPair, self).__init__(**kwargs)
+        super(NLJ1D_DefPair, self).__init__(**kwargs)
 
     def attribute_set(self, v):
-        super(NLJ2D_DefPair, self).attribute_set(v)
+        super(NLJ1D_DefPair, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         return v
 
 
-class NLJ2D(PhysModule):
+class NLJ1D(PhysModule):
     dim_fixed = True
 
     def __init__(self, **kwargs):
-        super(NLJ2D, self).__init__()
+        super(NLJ1D, self).__init__()
 
-        self['Domain'] = NLJ2D_DefDomain()
-        self['Boundary'] = NLJ2D_DefBdry()
+        self['Domain'] = NLJ1D_DefDomain()
+        self['Boundary'] = NLJ1D_DefBdry()
 
     @property
     def nuterms(self):
@@ -528,7 +532,7 @@ class NLJ2D(PhysModule):
         return self.is_complex_valued
 
     def attribute_set(self, v):
-        v = super(NLJ2D, self).attribute_set(v)
+        v = super(NLJ1D, self).attribute_set(v)
         #elements = "H1_FECollection * "+str(sum(self.nterms))
         elements = "H1_FECollection * 2"
 
@@ -552,10 +556,10 @@ class NLJ2D(PhysModule):
     def panel1_param(self):
         from petram.utils import pm_panel_param
 
-        panels = super(NLJ2D, self).panel1_param()
+        panels = super(NLJ1D, self).panel1_param()
         a, b = self.get_var_suffix_var_name_panel()
         b[0] = "dep. vars. base"
-        c = pm_panel_param(self, "EM2D1 model")
+        c = pm_panel_param(self, "EM1D1 model")
 
         panels.extend([
             ["independent vars.", self.ind_vars, 0, {}],
@@ -575,7 +579,7 @@ class NLJ2D(PhysModule):
         names = '\n'.join(textwrap.wrap(', '.join(self.dep_vars), width=50))
         name2 = '\n'.join(textwrap.wrap(', '.join(self.der_vars), width=50))
 
-        val = super(NLJ2D, self).get_panel1_value()
+        val = super(NLJ1D, self).get_panel1_value()
 
         from petram.utils import pm_get_gui_value
         gui_value, self.paired_model = pm_get_gui_value(
@@ -592,7 +596,7 @@ class NLJ2D(PhysModule):
     def import_panel1_value(self, v):
         import ifigure.widgets.dialog as dialog
 
-        v = super(NLJ2D, self).import_panel1_value(v)
+        v = super(NLJ1D, self).import_panel1_value(v)
 
         self.ind_vars = str(v[0])
         self.is_complex_valued = True
@@ -610,17 +614,17 @@ class NLJ2D(PhysModule):
         return True
 
     def get_possible_bdry(self):
-        if NLJ2D._possible_constraints is None:
-            self._set_possible_constraints('nlj2d')
-        bdrs = super(NLJ2D, self).get_possible_bdry()
-        return NLJ2D._possible_constraints['bdry'] + bdrs
+        if NLJ1D._possible_constraints is None:
+            self._set_possible_constraints('nlj1d')
+        bdrs = super(NLJ1D, self).get_possible_bdry()
+        return NLJ1D._possible_constraints['bdry'] + bdrs
 
     def get_possible_domain(self):
-        if NLJ2D._possible_constraints is None:
-            self._set_possible_constraints('nlj2d')
+        if NLJ1D._possible_constraints is None:
+            self._set_possible_constraints('nlj1d')
 
-        doms = super(NLJ2D, self).get_possible_domain()
-        return NLJ2D._possible_constraints['domain'] + doms
+        doms = super(NLJ1D, self).get_possible_domain()
+        return NLJ1D._possible_constraints['domain'] + doms
 
     def get_possible_point(self):
         '''
