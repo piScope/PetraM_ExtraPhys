@@ -230,7 +230,6 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         # 22: Evpe (vector E perp)
         # 23: Evpa (vector E para)
 
-        _b_perp, _b_para, b_perp_xy, b_perp_z, b_para_xy, b_para_z = self._jitted_coeffs
         from petram.helper.pybilininteg import PyVectorMassIntegrator
         if c == Exyname:  # Exy -> Ev, Evpe, Evpa
             if not real:

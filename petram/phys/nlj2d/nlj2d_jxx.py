@@ -262,25 +262,21 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
         return True
 
     def get_mixedbf_loc(self):
+        root = self.get_root_phys()
+        dep_vars = root.dep_vars
+
         names = self.current_names_xyz()
         udiag, vdiag = names
         all_names = udiag + vdiag
 
         root = self.get_root_phys()
-        i_jt = -1
-        i_pe = -1
-        for i in range(4):
-            flag = root.check_kfes(i)
-            if flag == 20:
-                i_jt = i
-            elif flag == 22:
-                i_pe = i
+        i_jt, i_pe = self._get_jt_pe_idx()
         assert i_jt >= 0 and i_pe >= 0, "Jt or Epe is not found in dependent variables."
 
         loc = []
         for name in all_names:
-            loc.append((name, i_pe, 1, 1))
-            loc.append((i_jt, name, 1, 1))
+            loc.append((name, dep_vars[i_pe], 1, 1))
+            loc.append((dep_vars[i_jt], name, 1, 1))
 
         return loc
 
@@ -297,22 +293,41 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
             assert False, "should not come here" + str(dep_var)
         return idx, umode
 
+    def _get_jt_pe_idx(self):
+        root = self.get_root_phys()
+        i_jt = -1
+        i_pe = -1
+        for i in range(4):
+            flag = root.check_kfes(i)
+            if flag == 20:
+                i_jt = i
+            elif flag == 22:
+                i_pe = i
+        return i_jt, i_pe
+
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
+
+        from petram.helper.pybilininteg import (PyVectorMassIntegrator,
+                                                PyVectorWeakPartialPartialIntegrator)
 
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
         idx, umode = self._get_dep_var_idx(dep_var)
 
-        # jxyz[0] -- constant contribution
-        # jxyz[1:] --- diffusion contribution
+        # ju[0], jv[0]    -- constant contribution
+        # ju[1:], jv[1:] --- diffusion contribution
+
         _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
             self)
 
         if idx != 0:
             message = "Add diffusion + mass integrator contribution"
-            mat = self._jitted_coeffs["M_perp"]
-            self.fill_divgrad_matrix(engine, a, 0, 0, mat, real, kz=kz)
+            mat = self._jitted_coeffs["weak_nabla_perp"]
+            self.add_integrator(engine, 'diffusion', mat, a.AddDomainIntegrator,
+                                PyVectorWeakPartialPartialIntegrator,
+                                itg_params=(3, 3, (0, 1, -1)))
+
             '''
             if real:
                 mat2 = -mat[[0, 1], [0, 1]]
@@ -333,15 +348,18 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
                 dterm = self._jitted_coeffs["dterms"][idx-1]
             else:
                 dterm = self._jitted_coeffs["dterms"][idx-1].conj()
+
+            dterm = self._jitted_coeffs["eye3x3"]*dterm
             self.add_integrator(engine, 'mass', dterm, a.AddDomainIntegrator,
-                                mfem.MassIntegrator)
+                                PyVectorMassIntegrator,
+                                itg_params=(3, 3, ))
 
         else:  # constant term contribution
             message = "Add mass integrator contribution"
-            dd0 = self._jitted_coeffs["dd0"]
-            self.add_integrator(engine, 'mass', -dd0, a.AddDomainIntegrator,
-                                mfem.MassIntegrator)
-
+            dterm = self._jitted_coeffs["eye3x3"]*self._jitted_coeffs["dd0"]
+            self.add_integrator(engine, 'mass', dterm, a.AddDomainIntegrator,
+                                PyVectorMassIntegrator,
+                                itg_params=(3, 3, ))
         if real:
             dprint1(message, "(real)", dep_var, idx)
         else:
@@ -352,11 +370,15 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
         '''
         fill mixed contribution
         '''
+        from petram.helper.pybilininteg import PyVectorMassIntegrator
 
         root = self.get_root_phys()
-        dep_vars = root.dep_vars  # "Exs, Exy, Jtx, Jty, Jtz"
+        dep_vars = root.dep_vars
+
         _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
             self)
+
+        meye = self._jitted_coeffs["meye3x3"]
 
         if real:
             dprint1("Add mixed cterm contribution(real)"  "r/c",
@@ -365,9 +387,10 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
             dprint1("Add mixed cterm contribution(imag)"  "r/c",
                     row, col, is_trans)
 
-        if col in dep_vars[3:6]:   # Eperp -> Ju, Jv
-            idx, umode, rowi = self._get_dep_var_idx(row)
-            colj = dep_vars[3:6].index(col)
+        i_jt, i_pe = self._get_jt_pe_idx()
+
+        if col == dep_vars[i_pe]:   # Eperp -> Ju, Jv
+            idx, umode = self._get_dep_var_idx(row)
 
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
@@ -375,22 +398,30 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                ccoeff = slot["diag+diagi"]
-                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
-                ccoeff = slot["(diag1+diagi1)*Mpara"]
-                self.fill_divgrad_matrix(
-                    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+                ccoeff = meye*slot["diag+diagi"]
+                self.add_integrator(engine,
+                                    'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=(3, 3, ),)
+                #ccoeff = slot["(diag1+diagi1)*Mpara"]
+                # self.fill_divgrad_matrix(
+                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             else:
                 if not real:
                     return
-                ccoeff = mfem.ConstantCoefficient(0.5)
-                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+                ccoeff = mfem.VectorConstantCoefficient([0.5, 0.5, 0.5])
+                self.add_integrator(engine,
+                                    'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    mfem.VectorMassIntegrator,)
 
             return
 
-        if row in dep_vars[6:9]:  # Ju, Jv -> Jt
-            idx, umode, colj = self._get_dep_var_idx(col)
-            rowi = dep_vars[6:9].index(row)
+        if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
+            idx, umode = self._get_dep_var_idx(col)
 
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
@@ -400,15 +431,23 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
             if umode:
                 if not real:
                     return
-                ccoeff = mfem.ConstantCoefficient(-0.5)
-                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
+                ccoeff = mfem.VectorConstantCoefficient([0.5, 0.5, 0.5])
+                self.add_integrator(engine,
+                                    'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    mfem.VectorMassIntegrator,)
 
             else:
-                ccoeff = slot["conj(diag-diagi)"]
-                self.fill_mass_matrix(engine, mbf, rowi, colj, ccoeff)
-                ccoeff = slot["conj(diag1-diagi1)*Mpara"]
-                self.fill_divgrad_matrix(
-                    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+                ccoeff = meye*slot["conj(diag-diagi)"]
+                self.add_integrator(engine, 'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=(3, 3, ),)
+                #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
+                # self.fill_divgrad_matrix(
+                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
