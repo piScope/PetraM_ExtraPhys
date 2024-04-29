@@ -123,16 +123,16 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
         return len(self.get_ju_names())
 
     def count_v_terms(self):
-        return len(self.get_jx_names())
+        return len(self.get_jv_names())
 
     def current_names_xyz(self):
         # all possible names without considering run-condition
         baseu = self.get_root_phys().extra_vars_baseu
         basev = self.get_root_phys().extra_vars_basev
 
-        udiag = [basex + "u" + self.name() + str(i+1)
+        udiag = [baseu + "u" + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
-        vdiag = [basex + "v" + self.name() + str(i+1)
+        vdiag = [basev + "v" + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
 
         return udiag, vdiag
@@ -267,59 +267,42 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
         all_names = udiag + vdiag
 
         root = self.get_root_phys()
-        dep_vars = root.dep_vars  # "E, Epe, Jt" or  "E, Epe, Epa, Jt"
+        i_jt = -1
+        i_pe = -1
+        for i in range(4):
+            flag = root.check_kfes(i)
+            if flag == 20:
+                i_jt = i
+            elif flag == 22:
+                i_pe = i
+        assert i_jt >= 0 and i_pe >= 0, "Jt or Epe is not found in dependent variables."
 
         loc = []
-        for n in all_names:
-            #loc.append((n, dep_vars[0], 1, 1))
-            #loc.append((n, dep_vars[1], 1, 1))
-            #loc.append((n, dep_vars[2], 1, 1))
-            loc.append((n, dep_vars[3], 1, 1))
-            loc.append((n, dep_vars[4], 1, 1))
-            loc.append((n, dep_vars[5], 1, 1))
-            loc.append((dep_vars[6], n,  1, 1))
-            loc.append((dep_vars[7], n,  1, 1))
-            loc.append((dep_vars[8], n,  1, 1))
+        for name in all_names:
+            loc.append((name, i_pe, 1, 1))
+            loc.append((i_jt, name, 1, 1))
 
         return loc
 
-    def _get_dep_var_idx(self, dep_var, names):
-        xudiag, xvdiag, yudiag, yvdiag, zudiag, zvdiag = names
-        if dep_var in xudiag:
-            idx = xudiag.index(dep_var)
+    def _get_dep_var_idx(self, dep_var):
+        names = self.current_names_xyz()
+        udiag, vdiag = names
+        if dep_var in udiag:
+            idx = udiag.index(dep_var)
             umode = True
-            dirc = 0
-        elif dep_var in xvdiag:
-            idx = xvdiag.index(dep_var)
+        elif dep_var in vdiag:
+            idx = vdiag.index(dep_var)
             umode = False
-            dirc = 0
-        elif dep_var in yudiag:
-            idx = yudiag.index(dep_var)
-            umode = True
-            dirc = 1
-        elif dep_var in yvdiag:
-            idx = yvdiag.index(dep_var)
-            umode = False
-            dirc = 1
-        elif dep_var in zudiag:
-            idx = zudiag.index(dep_var)
-            umode = True
-            dirc = 2
-        elif dep_var in zvdiag:
-            idx = zvdiag.index(dep_var)
-            umode = False
-            dirc = 2
         else:
             assert False, "should not come here" + str(dep_var)
-        return idx, umode, dirc
+        return idx, umode
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
-        names = self.current_names_xyz()
-        idx, umode, _dirc = self._get_dep_var_idx(dep_var, names)
+        idx, umode = self._get_dep_var_idx(dep_var)
 
         # jxyz[0] -- constant contribution
         # jxyz[1:] --- diffusion contribution
@@ -372,7 +355,6 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars  # "Exs, Exy, Jtx, Jty, Jtz"
-        names = self.current_names_xyz()
         _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
             self)
 
@@ -384,7 +366,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
                     row, col, is_trans)
 
         if col in dep_vars[3:6]:   # Eperp -> Ju, Jv
-            idx, umode, rowi = self._get_dep_var_idx(row, names)
+            idx, umode, rowi = self._get_dep_var_idx(row)
             colj = dep_vars[3:6].index(col)
 
             if idx == 0:
@@ -407,7 +389,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
             return
 
         if row in dep_vars[6:9]:  # Ju, Jv -> Jt
-            idx, umode, colj = self._get_dep_var_idx(col, names)
+            idx, umode, colj = self._get_dep_var_idx(col)
             rowi = dep_vars[6:9].index(row)
 
             if idx == 0:
