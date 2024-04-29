@@ -323,7 +323,7 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
 
         if idx != 0:
             message = "Add diffusion + mass integrator contribution"
-            mat = self._jitted_coeffs["weak_nabla_perp"]
+            mat = self._jitted_coeffs["weak_lap_perp"]
             self.add_integrator(engine, 'diffusion', mat, a.AddDomainIntegrator,
                                 PyVectorWeakPartialPartialIntegrator,
                                 itg_params=(3, 3, (0, 1, -1)))
