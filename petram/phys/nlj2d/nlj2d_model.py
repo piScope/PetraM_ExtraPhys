@@ -144,9 +144,9 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         freq, omega = em2d.get_freq_omega()
         ind_vars = root.ind_vars
 
-        from petram.phys.nlj2d.nlj2d_subs import build_coefficients
+        from petram.phys.common.nlj_common import build_common_nlj_coeff
 
-        self._jitted_coeffs = build_coefficients(ind_vars, bfunc, omega,
+        self._jitted_coeffs = build_common_nlj_coeff(ind_vars, bfunc, omega,
                                                  self._global_ns, self._local_ns,)
 
     def has_bf_contribution(self, kfes):

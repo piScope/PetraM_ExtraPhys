@@ -144,10 +144,10 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = root.ind_vars
 
-        from petram.phys.nlj2d.nlj2d_subs import build_coefficients
+        from petram.phys.common.nlj_common import build_common_nlj_coeff
 
-        self._jitted_coeffs = build_coefficients(ind_vars, bfunc, omega,
-                                                 self._global_ns, self._local_ns,)
+        self._jitted_coeffs = build_common_nlj_coeff(ind_vars, bfunc, omega,
+                                                     self._global_ns, self._local_ns,)
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
@@ -224,8 +224,9 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         var_s = em1d.dep_vars
         freq, omega = em1d.get_freq_omega()
 
-        Exyname = var_s[0]
-        Ezname = var_s[1]
+        Exname = var_s[0]
+        Eyname = var_s[1]        
+        Ezname = var_s[2]
 
         # E-total
         # 20: Jt   (J-vector total)
@@ -233,9 +234,8 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         # 22: Evpe (vector E perp)
         # 23: Evpa (vector E para)
 
-        _b_perp, _b_para, b_perp_xy, b_perp_z, b_para_xy, b_para_z = self._jitted_coeffs
         from petram.helper.pybilininteg import PyVectorMassIntegrator
-        if c == Exyname:  # Exy -> Ev, Evpe, Evpa
+        if c == Exname: # Ex -> Ev, Evpe, Evpa
             if not real:
                 return
             flag = get_dep_var_idx(r)
@@ -243,14 +243,29 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                coeff = self._jitted_coeffs["proj_xy"]
+                coeff = self._jitted_coeffs["proj_x"]
             elif flag == 22:
-                coeff = self._jitted_coeffs["b_perp_xy"]
+                coeff = self._jitted_coeffs["b_perp_x"]
             else:
-                coeff = self._jitted_coeffs["b_para_xy"]
-            shape = (3, 2)
+                coeff = self._jitted_coeffs["b_para_x"]
+            shape = (3, 1)
 
-        elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
+        elif c == Eyname: # Ey -> Ev, Evpe, Evpa
+            if not real:
+                return
+            flag = get_dep_var_idx(r)
+            if flag not in [21, 22, 23]:
+                assert False, "should not come here: " + str(flag)
+
+            if flag == 21:
+                coeff = self._jitted_coeffs["proj_y"]
+            elif flag == 22:
+                coeff = self._jitted_coeffs["b_perp_y"]
+            else:
+                coeff = self._jitted_coeffs["b_para_y"]
+            shape = (3, 1)
+
+        elif c == Ezname: # Ez -> Ev, Evpe, Evpa
             if not real:
                 return
             flag = get_dep_var_idx(r)
@@ -265,17 +280,27 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 coeff = self._jitted_coeffs["b_para_z"]
             shape = (3, 1)
 
-        elif r == Exyname:  # -j*omega*Jty -> Exy
+        elif r == Exname: # -j*omega*Jty -> Ex
             if real:
                 return
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["jomega_xy"]
-            shape = (2, 3)
+            coeff = self._jitted_coeffs["jomega_x"]
+            shape = (1, 3)
 
-        elif r == Ezname:  # -j*omega*Jty -> Ez
+        elif r == Eyname: # -j*omega*Jty -> Ey
+            if real:
+                return
+            flag = get_dep_var_idx(c)
+            if flag != 20:
+                assert False, "should not come here: " + str(flag)
+
+            coeff = self._jitted_coeffs["jomega_y"]
+            shape = (1, 3)
+
+        elif r == Ezname: # -j*omega*Jty -> Ez
             if real:
                 return
             flag = get_dep_var_idx(c)
@@ -284,6 +309,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
 
             coeff = self._jitted_coeffs["jomega_z"]
             shape = (1, 3)
+
         else:
             assert False, "should not come here"
 
@@ -521,9 +547,9 @@ class NLJ1D(PhysModule):
         except:
             return
 
-        if sdim == 2:
-            self.ind_vars = 'x, y'
-            self.ndim = 2
+        if sdim == 1:
+            self.ind_vars = 'x'
+            self.ndim = 1
         else:
             import warnings
             warnings.warn("Mesh should be 2D mesh for this model")
@@ -538,7 +564,7 @@ class NLJ1D(PhysModule):
 
         v["element"] = elements
         v["dim"] = 1
-        v["ind_vars"] = 'x, y'
+        v["ind_vars"] = 'x'
         v["dep_vars_suffix"] = ''
         v["dep_vars_base_txt"] = 'Nlj'
         v["is_complex_valued"] = True
