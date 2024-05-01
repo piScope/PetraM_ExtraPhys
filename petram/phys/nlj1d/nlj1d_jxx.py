@@ -37,12 +37,12 @@ data = (('B', VtableElement('bext', type='any',
                                       default="10.",
                                       tip="temperature ")),
         ('mass', VtableElement('mass', type="float",
-                               guilabel='masses(/Da)',
+                               guilabel='masse(/Da)',
                                default="1.0",
                                no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
         ('charge_q', VtableElement('charge_q', type='float',
-                                   guilabel='charges(/q)',
+                                   guilabel='charge(/q)',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
@@ -135,9 +135,9 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
         baseu = self.get_root_phys().extra_vars_baseu
         basev = self.get_root_phys().extra_vars_basev
 
-        udiag = [baseu + "u" + self.name() + str(i+1)
+        udiag = [baseu + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
-        vdiag = [basev + "v" + self.name() + str(i+1)
+        vdiag = [basev + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
 
         return udiag, vdiag
@@ -333,22 +333,6 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
                                 PyVectorWeakPartialPartialIntegrator,
                                 itg_params=(3, 3, (0, -1, -1)))
 
-            '''
-            if real:
-                mat2 = -mat[[0, 1], [0, 1]]
-                self.add_integrator(engine, 'diffusion', mat2, a.AddDomainIntegrator,
-                                    mfem.DiffusionIntegrator)
-                mat2 = (-kz**2)*mat[[2], [2]]
-                self.add_integrator(engine, 'mass', mat2, a.AddDomainIntegrator,
-                                    mfem.MassIntegrator)
-            else:
-                mat2 = 1j*kz*mat[[2], [0, 1]]
-                self.add_integrator(engine, '12', mat2, a.AddDomainIntegrator,
-                                    mfem.MixedDirectionalDerivativeIntegrator)
-                mat2 = 1j*kz*mat[[0, 1], [2]]
-                self.add_integrator(engine, '21', mat2, a.AddDomainIntegrator,
-                                    mfem.MixedScalarWeakDivergenceIntegrator)
-            '''
             if umode:
                 dterm = self._jitted_coeffs["dterms"][idx-1]
             else:

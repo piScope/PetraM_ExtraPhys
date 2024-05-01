@@ -37,12 +37,12 @@ data = (('B', VtableElement('bext', type='any',
                                       default="10.",
                                       tip="temperature ")),
         ('mass', VtableElement('mass', type="float",
-                               guilabel='masses(/Da)',
+                               guilabel='mass(/Da)',
                                default="1.0",
                                no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
         ('charge_q', VtableElement('charge_q', type='float',
-                                   guilabel='charges(/q)',
+                                   guilabel='charge(/q)',
                                    default="1",
                                    no_func=True,
                                    tip="charges normalized by q(=1.60217662e-19 [C])")),
@@ -130,9 +130,9 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
         baseu = self.get_root_phys().extra_vars_baseu
         basev = self.get_root_phys().extra_vars_basev
 
-        udiag = [baseu + "u" + self.name() + str(i+1)
+        udiag = [baseu + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
-        vdiag = [basev + "v" + self.name() + str(i+1)
+        vdiag = [basev + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
 
         return udiag, vdiag

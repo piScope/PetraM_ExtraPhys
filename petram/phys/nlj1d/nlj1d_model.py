@@ -225,7 +225,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
 
         Exname = var_s[0]
-        Eyname = var_s[1]        
+        Eyname = var_s[1]
         Ezname = var_s[2]
 
         # E-total
@@ -234,8 +234,15 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         # 22: Evpe (vector E perp)
         # 23: Evpa (vector E para)
 
+        if real:
+            dprint1("Add mixed cterm contribution(real)"  "r/c",
+                    r, c, is_trans)
+        else:
+            dprint1("Add mixed cterm contribution(imag)"  "r/c",
+                    r, c, is_trans)
+
         from petram.helper.pybilininteg import PyVectorMassIntegrator
-        if c == Exname: # Ex -> Ev, Evpe, Evpa
+        if c == Exname:  # Ex -> Ev, Evpe, Evpa
             if not real:
                 return
             flag = get_dep_var_idx(r)
@@ -250,7 +257,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 coeff = self._jitted_coeffs["b_para_x"]
             shape = (3, 1)
 
-        elif c == Eyname: # Ey -> Ev, Evpe, Evpa
+        elif c == Eyname:  # Ey -> Ev, Evpe, Evpa
             if not real:
                 return
             flag = get_dep_var_idx(r)
@@ -265,7 +272,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 coeff = self._jitted_coeffs["b_para_y"]
             shape = (3, 1)
 
-        elif c == Ezname: # Ez -> Ev, Evpe, Evpa
+        elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
             if not real:
                 return
             flag = get_dep_var_idx(r)
@@ -280,7 +287,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 coeff = self._jitted_coeffs["b_para_z"]
             shape = (3, 1)
 
-        elif r == Exname: # -j*omega*Jty -> Ex
+        elif r == Exname:  # -j*omega*Jty -> Ex
             if real:
                 return
             flag = get_dep_var_idx(c)
@@ -290,7 +297,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
             coeff = self._jitted_coeffs["jomega_x"]
             shape = (1, 3)
 
-        elif r == Eyname: # -j*omega*Jty -> Ey
+        elif r == Eyname:  # -j*omega*Jty -> Ey
             if real:
                 return
             flag = get_dep_var_idx(c)
@@ -300,7 +307,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
             coeff = self._jitted_coeffs["jomega_y"]
             shape = (1, 3)
 
-        elif r == Ezname: # -j*omega*Jty -> Ez
+        elif r == Ezname:  # -j*omega*Jty -> Ez
             if real:
                 return
             flag = get_dep_var_idx(c)

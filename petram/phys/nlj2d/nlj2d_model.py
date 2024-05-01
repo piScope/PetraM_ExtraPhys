@@ -230,6 +230,13 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         # 22: Evpe (vector E perp)
         # 23: Evpa (vector E para)
 
+        if real:
+            dprint1("Add mixed cterm contribution(real)"  "r/c",
+                    r, c, is_trans)
+        else:
+            dprint1("Add mixed cterm contribution(imag)"  "r/c",
+                    r, c, is_trans)
+
         from petram.helper.pybilininteg import PyVectorMassIntegrator
         if c == Exyname:  # Exy -> Ev, Evpe, Evpa
             if not real:
