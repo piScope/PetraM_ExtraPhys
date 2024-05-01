@@ -73,7 +73,7 @@ class NLJ1DMixIn():
 
     @property
     def need_pe(self):
-        return True
+        return False
 
     @property
     def use_pa(self):
