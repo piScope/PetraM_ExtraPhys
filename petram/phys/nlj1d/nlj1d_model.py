@@ -188,7 +188,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         if root.no_J_E:
             return loc
         loc.append((Exname, dep_vars[l], 1, 1))  # Jt -> Ex
-        loc.append((Eyname, dep_vars[l], 1, 1))  # Jt -> Eyy
+        loc.append((Eyname, dep_vars[l], 1, 1))  # Jt -> Ey
         loc.append((Ezname, dep_vars[l], 1, 1))  # Jt -> Ez
 
         return loc
@@ -687,6 +687,6 @@ class NLJ1D(PhysModule):
         add_coordinates(v, ind_vars)
         add_surf_normals(v, ind_vars)
 
-        add_components(v, name, "", ind_vars+["z"], solr, soli)
+        add_components(v, name, "", ind_vars+["y", "z"], solr, soli)
 
         return v
