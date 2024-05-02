@@ -368,6 +368,7 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
             self)
 
         meye = self._jitted_coeffs["meye3x3"]
+        mbcross = self._jitted_coeffs["mbcross"]
 
         if real:
             dprint1("Add mixed cterm contribution(real)"  "r/c",
@@ -387,20 +388,28 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                ccoeff = meye*slot["diag+diagi"]
+                #ccoeff = meye*slot["diag+diagi"]
+                # self.add_integrator(engine,
+                #                    'mass',
+                #                    ccoeff,
+                #                    mbf.AddDomainIntegrator,
+                #                    PyVectorMassIntegrator,
+                #                    itg_params=(3, 3, ),)
+                ccoeff = mbcross*slot["xy+xyi"]
                 self.add_integrator(engine,
                                     'mass',
                                     ccoeff,
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=(3, 3, ),)
+
                 #ccoeff = slot["(diag1+diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
                 #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             else:
                 if not real:
                     return
-                ccoeff = mfem.VectorConstantCoefficient([0.5, 0.5, 0.5])
+                ccoeff = mfem.VectorConstantCoefficient([-0.5, -0.5, -0.5])
                 self.add_integrator(engine,
                                     'mass',
                                     ccoeff,
@@ -420,6 +429,9 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
             if umode:
                 if not real:
                     return
+                #
+                # !!!!! note minus sign is because we need (i omega J).conj()
+                #
                 ccoeff = mfem.VectorConstantCoefficient([0.5, 0.5, 0.5])
                 self.add_integrator(engine,
                                     'mass',
@@ -428,12 +440,20 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
                                     mfem.VectorMassIntegrator,)
 
             else:
-                ccoeff = meye*slot["conj(diag-diagi)"]
-                self.add_integrator(engine, 'mass',
+                #ccoeff = meye*slot["conj(diag-diagi)"]
+                # self.add_integrator(engine, 'mass',
+                #                    ccoeff,
+                #                    mbf.AddDomainIntegrator,
+                #                    PyVectorMassIntegrator,
+                #                    itg_params=(3, 3, ),)
+                ccoeff = mbcross*slot["conj(xy-xyi)"]
+                self.add_integrator(engine,
+                                    'mass',
                                     ccoeff,
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=(3, 3, ),)
+
                 #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
                 #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)

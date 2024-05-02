@@ -243,8 +243,6 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
 
         from petram.helper.pybilininteg import PyVectorMassIntegrator
         if c == Exname:  # Ex -> Ev, Evpe, Evpa
-            if not real:
-                return
             flag = get_dep_var_idx(r)
             if flag not in [21, 22, 23]:
                 assert False, "should not come here: " + str(flag)
@@ -258,8 +256,6 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
             shape = (3, 1)
 
         elif c == Eyname:  # Ey -> Ev, Evpe, Evpa
-            if not real:
-                return
             flag = get_dep_var_idx(r)
             if flag not in [21, 22, 23]:
                 assert False, "should not come here: " + str(flag)
@@ -273,8 +269,6 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
             shape = (3, 1)
 
         elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
-            if not real:
-                return
             flag = get_dep_var_idx(r)
             if flag not in [21, 22, 23]:
                 assert False, "should not come here: " + str(flag)
@@ -288,33 +282,27 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
             shape = (3, 1)
 
         elif r == Exname:  # -j*omega*Jty -> Ex
-            if real:
-                return
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["jomega_x"]
+            coeff = self._jitted_coeffs["mjomega_x"]
             shape = (1, 3)
 
         elif r == Eyname:  # -j*omega*Jty -> Ey
-            if real:
-                return
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["jomega_y"]
+            coeff = self._jitted_coeffs["mjomega_y"]
             shape = (1, 3)
 
         elif r == Ezname:  # -j*omega*Jty -> Ez
-            if real:
-                return
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["jomega_z"]
+            coeff = self._jitted_coeffs["mjomega_z"]
             shape = (1, 3)
 
         else:

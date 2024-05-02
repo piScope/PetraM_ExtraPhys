@@ -328,22 +328,6 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
                                 PyVectorWeakPartialPartialIntegrator,
                                 itg_params=(3, 3, (0, 1, -1)))
 
-            '''
-            if real:
-                mat2 = -mat[[0, 1], [0, 1]]
-                self.add_integrator(engine, 'diffusion', mat2, a.AddDomainIntegrator,
-                                    mfem.DiffusionIntegrator)
-                mat2 = (-kz**2)*mat[[2], [2]]
-                self.add_integrator(engine, 'mass', mat2, a.AddDomainIntegrator,
-                                    mfem.MassIntegrator)
-            else:
-                mat2 = 1j*kz*mat[[2], [0, 1]]
-                self.add_integrator(engine, '12', mat2, a.AddDomainIntegrator,
-                                    mfem.MixedDirectionalDerivativeIntegrator)
-                mat2 = 1j*kz*mat[[0, 1], [2]]
-                self.add_integrator(engine, '21', mat2, a.AddDomainIntegrator,
-                                    mfem.MixedScalarWeakDivergenceIntegrator)
-            '''
             if umode:
                 dterm = self._jitted_coeffs["dterms"][idx-1]
             else:
@@ -431,7 +415,10 @@ class NLJ2D_Jxx(NLJ2D_BaseDomain):
             if umode:
                 if not real:
                     return
-                ccoeff = mfem.VectorConstantCoefficient([0.5, 0.5, 0.5])
+                #
+                # !!!!! note minus sign is because we need (i omega J).conj()
+                #
+                ccoeff = mfem.VectorConstantCoefficient([-0.5, -0.5, -0.5])
                 self.add_integrator(engine,
                                     'mass',
                                     ccoeff,
