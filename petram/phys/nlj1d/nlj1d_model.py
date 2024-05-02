@@ -589,7 +589,7 @@ class NLJ1D(PhysModule):
             ["derived vars.", ','.join(self.der_vars), 2, {}],
             ["predefined ns vars.", txt_predefined, 2, {}],
             c,
-            ["use E->J only", False, 3, {"text": ' '}],
+            ["suppress J-> E", False, 3, {"text": ' '}],
         ])
 
         return panels

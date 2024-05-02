@@ -187,6 +187,13 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
         v['An_mode'] = anbn_options[0]
         v['use_4_components'] = component_options[0]
         v['debug_option'] = ''
+
+        v['use_sigma'] = True
+        v['use_delta'] = False
+        v['use_tau'] = False
+        v['use_pi'] = False
+        v['use_eta'] = False
+        v['use_xi'] = False
         return v
 
     def plot_approx(self, evt):
@@ -205,6 +212,12 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
         panels = super(NLJ1D_Jxx, self).panel1_param()
         panels.extend([
             ["An", None, 1, {"values": anbn_options}],
+            ["use Sigma (hot S)", False, 3, {"text": ' '}],
+            ["use Delta (hot D)", False, 3, {"text": ' '}],
+            ["use Tau (hot Syy)", False, 3, {"text": ' '}],
+            ["use Pi (NI)", False, 3, {"text": ' '}],
+            ["use Eta (NI)", False, 3, {"text": ' '}],
+            ["use Xi (NI)", False, 3, {"text": ' '}],
             # ["Components", None, 1, {
             #    "values": component_options}],
             ["cyclotron harms.", None, 400, {}],
@@ -227,14 +240,21 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
         if self.An_mode not in anbn_options:
             self.An_mode = anbn_options[0]
 
-        values.extend([self.An_mode,
+        values.extend([self.An_mode, self.use_sigma, self.use_delta, self.use_tau,
+                       self.use_pi, self.use_eta, self.use_xi,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
         return values
 
     def import_panel1_value(self, v):
         check = super(NLJ1D_Jxx, self).import_panel1_value(v)
-        self.An_mode = str(v[-7])
+        self.An_mode = str(v[-13])
+        self.use_sigma = bool(v[-12])
+        self.use_delta = bool(v[-11])
+        self.use_tau = bool(v[-10])
+        self.use_pi = bool(v[-9])
+        self.use_eta = bool(v[-8])
+        self.use_xi = bool(v[-7])
         self.ra_nmax = int(v[-6])
         self.ra_kprmax = float(v[-5])
         self.ra_mmin = int(v[-4])
@@ -313,7 +333,7 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
-                                                PyVectorWeakPartialPartialIntegrator)
+                                                PyVectorWeakPartialPartialIntegrator,)
 
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
@@ -359,7 +379,8 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
         '''
         fill mixed contribution
         '''
-        from petram.helper.pybilininteg import PyVectorMassIntegrator
+        from petram.helper.pybilininteg import (PyVectorMassIntegrator,
+                                                PyVectorPartialPartialIntegrator)
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars
@@ -369,6 +390,8 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
 
         meye = self._jitted_coeffs["meye3x3"]
         mbcross = self._jitted_coeffs["mbcross"]
+        mbcrosst = self._jitted_coeffs["mbcrosst"]
+        jomega = self._jitted_coeffs["jomega"]
 
         if real:
             dprint1("Add mixed cterm contribution(real)"  "r/c",
@@ -388,33 +411,44 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                #ccoeff = meye*slot["diag+diagi"]
-                # self.add_integrator(engine,
-                #                    'mass',
-                #                    ccoeff,
-                #                    mbf.AddDomainIntegrator,
-                #                    PyVectorMassIntegrator,
-                #                    itg_params=(3, 3, ),)
-                ccoeff = mbcross*slot["xy+xyi"]
+                if self.use_sigma:
+                    ccoeff = meye*slot["diag+diagi"]
+                    self.add_integrator(engine,
+                                        'mass',
+                                        ccoeff,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ),)
+
+                if self.use_delta:
+                    ccoeff = mbcross*slot["xy+xyi"]
+                    self.add_integrator(engine,
+                                        'mass',
+                                        ccoeff,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ),)
+                if self.use_tau:
+                    mat = self._jitted_coeffs["mcurlpecurlpe"]*slot["cl+cli"]
+                    self.add_integrator(engine,
+                                        'diffusion',
+                                        mat,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
+
+                #ccoeff = slot["(diag1+diagi1)*Mpara"]
+                # self.fill_divgrad_matrix(
+                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+            else:
+                # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
+                ccoeff = jomega.conj()
                 self.add_integrator(engine,
                                     'mass',
                                     ccoeff,
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=(3, 3, ),)
-
-                #ccoeff = slot["(diag1+diagi1)*Mpara"]
-                # self.fill_divgrad_matrix(
-                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
-            else:
-                if not real:
-                    return
-                ccoeff = mfem.VectorConstantCoefficient([-0.5, -0.5, -0.5])
-                self.add_integrator(engine,
-                                    'mass',
-                                    ccoeff,
-                                    mbf.AddDomainIntegrator,
-                                    mfem.VectorMassIntegrator,)
 
             return
 
@@ -427,32 +461,42 @@ class NLJ1D_Jxx(NLJ1D_BaseDomain):
                 slot = self._jitted_coeffs["cterms"][idx-1]
 
             if umode:
-                if not real:
-                    return
-                #
-                # !!!!! note minus sign is because we need (i omega J).conj()
-                #
-                ccoeff = mfem.VectorConstantCoefficient([0.5, 0.5, 0.5])
-                self.add_integrator(engine,
-                                    'mass',
-                                    ccoeff,
-                                    mbf.AddDomainIntegrator,
-                                    mfem.VectorMassIntegrator,)
-
-            else:
-                #ccoeff = meye*slot["conj(diag-diagi)"]
-                # self.add_integrator(engine, 'mass',
-                #                    ccoeff,
-                #                    mbf.AddDomainIntegrator,
-                #                    PyVectorMassIntegrator,
-                #                    itg_params=(3, 3, ),)
-                ccoeff = mbcross*slot["conj(xy-xyi)"]
+                # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
+                ccoeff = jomega
                 self.add_integrator(engine,
                                     'mass',
                                     ccoeff,
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=(3, 3, ),)
+
+            else:
+                if self.use_sigma:
+                    ccoeff = meye*slot["conj(diag-diagi)"]
+                    self.add_integrator(engine, 'mass',
+                                        ccoeff,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ),)
+
+                if self.use_delta:
+                    ccoeff = mbcrosst*slot["conj(xy-xyi)"]
+                    self.add_integrator(engine,
+                                        'mass',
+                                        ccoeff,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ),)
+
+                if self.use_tau:
+                    mat = self._jitted_coeffs["mcurlpecurlpet"] * \
+                        slot["conj(cl-cli)"]
+                    self.add_integrator(engine,
+                                        'diffusion',
+                                        mat,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
 
                 #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
