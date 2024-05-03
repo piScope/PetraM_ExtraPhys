@@ -239,8 +239,6 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
 
         from petram.helper.pybilininteg import PyVectorMassIntegrator
         if c == Exyname:  # Exy -> Ev, Evpe, Evpa
-            if not real:
-                return
             flag = get_dep_var_idx(r)
             if flag not in [21, 22, 23]:
                 assert False, "should not come here: " + str(flag)
@@ -254,8 +252,6 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             shape = (3, 2)
 
         elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
-            if not real:
-                return
             flag = get_dep_var_idx(r)
             if flag not in [21, 22, 23]:
                 assert False, "should not come here: " + str(flag)
@@ -269,8 +265,6 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             shape = (3, 1)
 
         elif r == Exyname:  # -j*omega*Jty -> Exy
-            if real:
-                return
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
@@ -279,8 +273,6 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             shape = (2, 3)
 
         elif r == Ezname:  # -j*omega*Jty -> Ez
-            if real:
-                return
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
