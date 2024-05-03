@@ -275,7 +275,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["jomega_xy"]
+            coeff = self._jitted_coeffs["mjomega_xy"]
             shape = (2, 3)
 
         elif r == Ezname:  # -j*omega*Jty -> Ez
@@ -285,7 +285,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["jomega_z"]
+            coeff = self._jitted_coeffs["mjomega_z"]
             shape = (1, 3)
         else:
             assert False, "should not come here"
