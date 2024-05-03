@@ -6,7 +6,7 @@ This model consider
 '''
 from petram.phys.common.vector_fe_helper import VectorFEHelper_mxin
 from petram.mfem_config import use_parallel
-from petram.phys.nlj1d.nlj1d_model import NLJ1D_BaseDomain
+from petram.phys.nlj2d.nlj2d_model import NLJ2D_BaseDomain
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 
@@ -17,7 +17,7 @@ from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
-dprint1, dprint2, dprint3 = debug.init_dprints('NLJ1D_Jhot')
+dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Jhot')
 
 if use_parallel:
     import mfem.par as mfem
@@ -37,7 +37,7 @@ data = (('B', VtableElement('bext', type='any',
                                       default="10.",
                                       tip="temperature ")),
         ('mass', VtableElement('mass', type="float",
-                               guilabel='masse(/Da)',
+                               guilabel='mass(/Da)',
                                default="1.0",
                                no_func=True,
                                tip="mass. normalized by Da. For electrons, use q_Da")),
@@ -50,11 +50,6 @@ data = (('B', VtableElement('bext', type='any',
                                guilabel='collisions (Te, ne)',
                                default="10, 1e17",
                                tip="electron density and temperature for collision")),
-        ('ky', VtableElement('ky', type='float',
-                             guilabel='ky',
-                             default=0.,
-                             no_func=True,
-                             tip="wave number` in the y direction")),
         ('kz', VtableElement('kz', type='float',
                              guilabel='kz',
                              default=0.,
@@ -63,21 +58,21 @@ data = (('B', VtableElement('bext', type='any',
 
 
 def domain_constraints():
-    return [NLJ1D_Jhot]
+    return [NLJ2D_Jhot]
 
 
 component_options = ("mass", "mass + curlcurl")
 anbn_options = ("kpara->0 + col.", "kpara from kz")
 
 
-class NLJ1D_Jhot(NLJ1D_BaseDomain):
+class NLJ2D_Jhot(NLJ2D_BaseDomain):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
     vt = Vtable(data)
 
     def __init__(self, **kwargs):
-        super(NLJ1D_Jhot, self).__init__(**kwargs)
+        super(NLJ2D_Jhot, self).__init__(**kwargs)
 
     @property
     def need_pe(self):
@@ -93,7 +88,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, tene, ky, kz = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, tene, kz = self.vt.make_value_or_expression(
             self)
 
         nmax = self.ra_nmax
@@ -149,12 +144,12 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
     def compile_coeffs(self):
         paired_model = self.get_root_phys().paired_model
         mfem_physroot = self.get_root_phys().parent
-        em1d = mfem_physroot[paired_model]
+        em2d = mfem_physroot[paired_model]
 
-        freq, omega = em1d.get_freq_omega()
+        freq, omega = em2d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, tene, ky, kz = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, tene, kz = self.vt.make_value_or_expression(
             self)
 
         nmax = self.ra_nmax
@@ -163,12 +158,12 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         ngrid = self.ra_ngrid
 
         from petram.phys.common.nonlocalj_subs import jperp_terms
-        from petram.phys.nlj1d.nlj1d_jhot_subs import build_coefficients
+        from petram.phys.nlj2d.nlj2d_jhot_subs import build_coefficients
 
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
                            mmin=mmin, mmax=mmin, ngrid=ngrid)
 
-        self._jitted_coeffs = build_coefficients(ind_vars, ky, kz, omega, B, dens, temp,
+        self._jitted_coeffs = build_coefficients(ind_vars, kz, omega, B, dens, temp,
                                                  mass, charge,
                                                  tene, fits,
                                                  self.An_mode,
@@ -209,7 +204,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                    ngrid=ngrid, pmax=pmax)
 
     def panel1_param(self):
-        panels = super(NLJ1D_Jhot, self).panel1_param()
+        panels = super(NLJ2D_Jhot, self).panel1_param()
         panels.extend([
             ["An", None, 1, {"values": anbn_options}],
             ["use Sigma (hot S)", False, 3, {"text": ' '}],
@@ -233,7 +228,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         return panels
 
     def get_panel1_value(self):
-        values = super(NLJ1D_Jhot, self).get_panel1_value()
+        values = super(NLJ2D_Jhot, self).get_panel1_value()
 
         if self.An_mode not in anbn_options:
             self.An_mode = anbn_options[0]
@@ -245,7 +240,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         return values
 
     def import_panel1_value(self, v):
-        check = super(NLJ1D_Jhot, self).import_panel1_value(v)
+        check = super(NLJ2D_Jhot, self).import_panel1_value(v)
         self.An_mode = str(v[-13])
         self.use_sigma = bool(v[-12])
         self.use_delta = bool(v[-11])
@@ -331,7 +326,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
-                                                PyVectorWeakPartialPartialIntegrator,)
+                                                PyVectorWeakPartialPartialIntegrator)
 
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
@@ -341,7 +336,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         # ju[0], jv[0]    -- constant contribution
         # ju[1:], jv[1:] --- diffusion contribution
 
-        _B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
+        _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
             self)
 
         if idx != 0:
@@ -349,7 +344,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             mat = self._jitted_coeffs["weak_lap_perp"]
             self.add_integrator(engine, 'diffusion', mat, a.AddDomainIntegrator,
                                 PyVectorWeakPartialPartialIntegrator,
-                                itg_params=(3, 3, (0, -1, -1)))
+                                itg_params=(3, 3, (0, 1, -1)))
 
             if umode:
                 dterm = self._jitted_coeffs["dterms"][idx-1]
@@ -383,7 +378,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         root = self.get_root_phys()
         dep_vars = root.dep_vars
 
-        #_B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
+        # _B, _dens, _temp, _mass, _charge, _tene, kz = self.vt.make_value_or_expression(
         #    self)
 
         meye = self._jitted_coeffs["meye3x3"]
@@ -433,13 +428,12 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         mat,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=(3, 3, (0, 1, -1)))
 
                 #ccoeff = slot["(diag1+diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
                 #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             else:
-                # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
                 ccoeff = jomega.conj()
                 self.add_integrator(engine,
                                     'mass',
@@ -447,7 +441,6 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=(3, 3, ),)
-
             return
 
         if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
@@ -494,7 +487,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         mat,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=(3, 3, (0, 1, -1)))
 
                 #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
