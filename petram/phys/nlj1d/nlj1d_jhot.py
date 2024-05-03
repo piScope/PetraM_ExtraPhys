@@ -51,9 +51,9 @@ data = (('B', VtableElement('bext', type='any',
                                default="10, 1e17",
                                tip="electron density and temperature for collision")),
         ('kpa', VtableElement('kpa', type='float',
-                               guilabel='k-pa for Zn',
-                               default=0,
-                               tip="k_parallel used to compute absorption")),
+                              guilabel='k-pa for Zn',
+                              default=0,
+                              tip="k_parallel used to compute absorption")),
         ('ky', VtableElement('ky', type='float',
                              guilabel='ky',
                              default=0.,
@@ -86,6 +86,16 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
     @property
     def need_pe(self):
         return True
+
+    @property
+    def need_pa(self):
+        if not hasattr(self, 'use_eta'):
+            self.use_eta = False
+        if not hasattr(self, 'use_xi'):
+            self.use_xi = False
+        if not hasattr(self, 'use_pi'):
+            self.use_pi = False
+        return self.use_eta or self.use_xi or self.use_pi
 
     def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -128,23 +138,48 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         names = self.current_names_xyz()
         return names[1]
 
+    def get_jm_names(self):
+        names = self.current_names_xyz()
+        return names[2]
+
+    def get_jn_names(self):
+        names = self.current_names_xyz()
+        return names[3]
+
     def count_u_terms(self):
         return len(self.get_ju_names())
 
     def count_v_terms(self):
         return len(self.get_jv_names())
 
+    def count_m_terms(self):
+        return len(self.get_jm_names())
+
+    def count_n_terms(self):
+        return len(self.get_jn_names())
+
     def current_names_xyz(self):
         # all possible names without considering run-condition
         baseu = self.get_root_phys().extra_vars_baseu
         basev = self.get_root_phys().extra_vars_basev
-
         udiag = [baseu + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
         vdiag = [basev + self.name() + str(i+1)
                  for i in range(self._count_perp_terms())]
 
-        return udiag, vdiag
+        if self.use_eta or self.use_xi or self.use_pi:
+            basem = self.get_root_phys().extra_vars_basem
+            basen = self.get_root_phys().extra_vars_basen
+            mdiag = [basem + self.name() + str(i+1)
+                     for i in range(self._count_perp_terms())]
+            ndiag = [basen + self.name() + str(i+1)
+                     for i in range(self._count_perp_terms())]
+
+        else:
+            mdiag = []
+            ndiag = []
+
+        return udiag, vdiag, mdiag, ndiag
 
     @property
     def jited_coeff(self):
@@ -220,7 +255,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             ["use Delta (hot D)", False, 3, {"text": ' '}],
             ["use Tau (hot Syy)", False, 3, {"text": ' '}],
             ["use Pi (NI)", False, 3, {"text": ' '}],
-            ["use Eta (NI)", False, 3, {"text": ' '}],
+            ["use Eta (hot XZ)", False, 3, {"text": ' '}],
             ["use Xi (NI)", False, 3, {"text": ' '}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
@@ -246,6 +281,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                        self.use_pi, self.use_eta, self.use_xi,
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
+
         return values
 
     def import_panel1_value(self, v):
@@ -262,6 +298,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         self.ra_mmin = int(v[-4])
         self.ra_ngrid = int(v[-3])
         self.ra_pmax = float(v[-2])
+
         #self.debug_option = str(v[-1])
         return True
 
@@ -272,8 +309,8 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         dep_var = root.kfes2depvar(kfes)
 
         names = self.current_names_xyz()
-        udiag, vdiag = names
-        all_names = udiag + vdiag
+        udiag, vdiag, mdiag, ndiag = names
+        all_names = udiag + vdiag + mdiag + ndiag
 
         if dep_var not in all_names:
             return False
@@ -281,6 +318,10 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         if check == 18:     # u-component
             return True
         elif check == 19:   # v-component
+            return True
+        elif check == 24:   # m-component
+            return True
+        elif check == 25:   # n-component
             return True
         else:
             return False
@@ -293,44 +334,61 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         dep_vars = root.dep_vars
 
         names = self.current_names_xyz()
-        udiag, vdiag = names
-        all_names = udiag + vdiag
+        udiag, vdiag, mdiag, ndiag = names
+        all_names = udiag + vdiag + mdiag + ndiag
 
         root = self.get_root_phys()
-        i_jt, i_pe = self._get_jt_pe_idx()
+        i_jt, i_pe, i_pa = self._get_jt_pe_idx()
         assert i_jt >= 0 and i_pe >= 0, "Jt or Epe is not found in dependent variables."
 
         loc = []
-        for name in all_names:
+        for name in udiag + vdiag:
             loc.append((name, dep_vars[i_pe], 1, 1))
             loc.append((dep_vars[i_jt], name, 1, 1))
-
+        if self.use_eta or self.use_xi or self.use_pi:
+            assert i_pa >= 0, "Epa is not found, although eta/xi/pi are on"
+            for name in mdiag + ndiag:
+                loc.append((name, dep_vars[i_pa], 1, 1))
+                loc.append((dep_vars[i_jt], name, 1, 1))
         return loc
 
     def _get_dep_var_idx(self, dep_var):
         names = self.current_names_xyz()
-        udiag, vdiag = names
+        udiag, vdiag, mdiag, ndiag = names
         if dep_var in udiag:
             idx = udiag.index(dep_var)
             umode = True
+            flag = 18
         elif dep_var in vdiag:
             idx = vdiag.index(dep_var)
             umode = False
+            flag = 19
+        elif dep_var in mdiag:
+            idx = mdiag.index(dep_var)
+            umode = False
+            flag = 24
+        elif dep_var in ndiag:
+            idx = ndiag.index(dep_var)
+            umode = False
+            flag = 25
         else:
             assert False, "should not come here" + str(dep_var)
-        return idx, umode
+        return idx, umode, flag
 
     def _get_jt_pe_idx(self):
         root = self.get_root_phys()
         i_jt = -1
         i_pe = -1
+        i_pa = -1
         for i in range(4):
             flag = root.check_kfes(i)
             if flag == 20:
                 i_jt = i
             elif flag == 22:
                 i_pe = i
-        return i_jt, i_pe
+            elif flag == 23:
+                i_pa = i
+        return i_jt, i_pe, i_pa
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
@@ -340,12 +398,12 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
 
-        idx, umode = self._get_dep_var_idx(dep_var)
+        idx, umode, flag = self._get_dep_var_idx(dep_var)
 
         # ju[0], jv[0]    -- constant contribution
         # ju[1:], jv[1:] --- diffusion contribution
 
-        #_B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
+        # _B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
         #    self)
 
         if idx != 0:
@@ -382,12 +440,13 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         fill mixed contribution
         '''
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
+                                                PyVectorPartialIntegrator,
                                                 PyVectorPartialPartialIntegrator)
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars
 
-        #_B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
+        # _B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
         #    self)
 
         meye = self._jitted_coeffs["meye3x3"]
@@ -402,10 +461,10 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             dprint1("Add mixed cterm contribution(imag)"  "r/c",
                     row, col, is_trans)
 
-        i_jt, i_pe = self._get_jt_pe_idx()
+        i_jt, i_pe, i_pa = self._get_jt_pe_pa_idx()
 
         if col == dep_vars[i_pe]:   # Eperp -> Ju, Jv
-            idx, umode = self._get_dep_var_idx(row)
+            idx, umode, flag = self._get_dep_var_idx(row)
 
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
@@ -439,6 +498,16 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         PyVectorPartialPartialIntegrator,
                                         itg_params=(3, 3, (0, -1, -1)))
 
+                if self.use_eta:
+                    mat = self._jitted_coeffs["mbxcurlpe"] * \
+                        slot["eta+etai"]*(-1)
+                    self.add_integrator(engine,
+                                        'eta',
+                                        mat,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
+
                 #ccoeff = slot["(diag1+diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
                 #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
@@ -453,9 +522,37 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                     itg_params=(3, 3, ),)
 
             return
+        if col == dep_vars[i_pa]:   # Epara -> Jm, Jn
+            idx, umode, flag = self._get_dep_var_idx(row)
+            assert flag in (
+                24, 25), "Epara should contribute only on Jm and Jn"
 
-        if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
-            idx, umode = self._get_dep_var_idx(col)
+            if idx == 0:
+                slot = self._jitted_coeffs["c0"]
+            else:
+                slot = self._jitted_coeffs["cterms"][idx-1]
+
+            if umode:
+                if self.use_eta:
+                    mat = self._jitted_coeffs["mbxcurlpe"]*slot["eta+etai"]
+                    self.add_integrator(engine,
+                                        'eta',
+                                        mat,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
+
+            else:
+                ccoeff = jomega.conj()
+                self.add_integrator(engine,
+                                    'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=(3, 3, ),)
+
+        if row == dep_vars[i_jt]:  # Ju, Jv, Jm, Jn -> Jt
+            idx, umode, flag = self._get_dep_var_idx(dep_var)
 
             if idx == 0:
                 slot = self._jitted_coeffs["c0"]
@@ -473,36 +570,60 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                     itg_params=(3, 3, ),)
 
             else:
-                if self.use_sigma:
-                    ccoeff = meye*slot["conj(diag-diagi)"]
-                    self.add_integrator(engine, 'mass',
-                                        ccoeff,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ),)
+                if flag in (18, 19):  # Ju, Jv
+                    if self.use_sigma:
+                        ccoeff = meye*slot["conj(diag-diagi)"]
+                        self.add_integrator(engine, 'mass',
+                                            ccoeff,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorMassIntegrator,
+                                            itg_params=(3, 3, ),)
 
-                if self.use_delta:
-                    ccoeff = mbcrosst*slot["conj(xy-xyi)"]
-                    self.add_integrator(engine,
-                                        'mass',
-                                        ccoeff,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ),)
+                    if self.use_delta:
+                        ccoeff = mbcrosst*slot["conj(xy-xyi)"]
+                        self.add_integrator(engine,
+                                            'mass',
+                                            ccoeff,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorMassIntegrator,
+                                            itg_params=(3, 3, ),)
 
-                if self.use_tau:
-                    mat = self._jitted_coeffs["mcurlpecurlpet"] * \
-                        slot["conj(cl-cli)"]
-                    self.add_integrator(engine,
-                                        'diffusion',
-                                        mat,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorPartialPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                    if self.use_tau:
+                        mat = self._jitted_coeffs["mcurlpecurlpet"] * \
+                            slot["conj(cl-cli)"]
+                        self.add_integrator(engine,
+                                            'diffusion',
+                                            mat,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialPartialIntegrator,
+                                            itg_params=(3, 3, (0, -1, -1)))
 
-                #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
-                # self.fill_divgrad_matrix(
-                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+                    if self.use_eta:
+                        mat = self._jitted_coeffs["mbxcurlpet"] * \
+                            slot["conj(eta-etai)"]*(-1)
+                        self.add_integrator(engine,
+                                            'eta',
+                                            mat,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialIntegrator,
+                                            itg_params=(3, 3, (0, -1, -1)))
+                  #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
+                  # self.fill_divgrad_matrix(
+                  #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
+
+                elif flag in (24, 25):  # Jm, Jn
+                    if self.use_eta:
+                        mat = self._jitted_coeffs["mbxcurlpet"] * \
+                            slot["conj(eta-etai)"]
+                        self.add_integrator(engine,
+                                            'eta',
+                                            mat,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialIntegrator,
+                                            itg_params=(3, 3, (0, -1, -1)))
+                else:
+                    assert False, "should not come here"
+
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
