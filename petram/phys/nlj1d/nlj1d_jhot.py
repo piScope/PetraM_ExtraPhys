@@ -50,6 +50,10 @@ data = (('B', VtableElement('bext', type='any',
                                guilabel='collisions (Te, ne)',
                                default="10, 1e17",
                                tip="electron density and temperature for collision")),
+        ('kpa', VtableElement('kpa', type='float',
+                               guilabel='k-pa for Zn',
+                               default=0,
+                               tip="k_parallel used to compute absorption")),
         ('ky', VtableElement('ky', type='float',
                              guilabel='ky',
                              default=0.,
@@ -93,7 +97,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, tene, ky, kz = self.vt.make_value_or_expression(
+        B, dens, temp, masse, charge, tene, kpa, ky, kz = self.vt.make_value_or_expression(
             self)
 
         nmax = self.ra_nmax
@@ -154,7 +158,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, tene, ky, kz = self.vt.make_value_or_expression(
+        B, dens, temp, mass, charge, tene, kpa, ky, kz = self.vt.make_value_or_expression(
             self)
 
         nmax = self.ra_nmax
@@ -170,7 +174,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
 
         self._jitted_coeffs = build_coefficients(ind_vars, ky, kz, omega, B, dens, temp,
                                                  mass, charge,
-                                                 tene, fits,
+                                                 tene, kpa,  fits,
                                                  self.An_mode,
                                                  self._global_ns, self._local_ns,)
 
@@ -341,8 +345,8 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         # ju[0], jv[0]    -- constant contribution
         # ju[1:], jv[1:] --- diffusion contribution
 
-        _B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
-            self)
+        #_B, _dens, _temp, _mass, _charge, _tene, ky, kz = self.vt.make_value_or_expression(
+        #    self)
 
         if idx != 0:
             message = "Add diffusion + mass integrator contribution"

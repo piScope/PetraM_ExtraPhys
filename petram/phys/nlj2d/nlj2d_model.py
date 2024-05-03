@@ -264,20 +264,20 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                 coeff = self._jitted_coeffs["b_para_z"]
             shape = (3, 1)
 
-        elif r == Exyname:  # -j*omega*Jty -> Exy
+        elif r == Exyname:  # Jty -> Exy
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["mjomega_xy"]
+            coeff = self._jitted_coeffs["one_xy"]
             shape = (2, 3)
 
-        elif r == Ezname:  # -j*omega*Jty -> Ez
+        elif r == Ezname:  # *Jty -> Ez
             flag = get_dep_var_idx(c)
             if flag != 20:
                 assert False, "should not come here: " + str(flag)
 
-            coeff = self._jitted_coeffs["mjomega_z"]
+            coeff = self._jitted_coeffs["one_z"]
             shape = (1, 3)
         else:
             assert False, "should not come here"
