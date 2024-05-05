@@ -4,7 +4,6 @@ This model consider
    J_perp = wp^2/w n^2 exp(-l)In/l E_perp
 
 '''
-from petram.phys.common.vector_fe_helper import VectorFEHelper_mxin
 from petram.mfem_config import use_parallel
 from petram.phys.nlj2d.nlj2d_model import NLJ2D_BaseDomain
 from mfem.common.mpi_debug import nicePrint

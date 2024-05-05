@@ -13,6 +13,9 @@
     21: Ev  (vector E)
     22: Evpe (vector E perp)
     23: Evpa (vector E para)
+    24: Jpm  (J-vector part m-contribution)
+    25: Jpn  (J-vector part n-contribution)
+
 '''
 from numba import njit
 from petram.mfem_config import use_parallel
@@ -41,73 +44,37 @@ except:
     if mm.has_addon_access not in ["any", "nonlocalj"]:
         sys.modules[__name__].dependency_invalid = True
 
+from petram.phys.common.nlj_mixin import (NLJMixIn,
+                                   NLJPhysMixIn,)
 
-class NLJ2DMixIn():
-    def count_v_terms(self):
-        return 0
-
-    def count_u_terms(self):
-        return 0
-
-    def get_jv_names(self):
-        return []
-
-    def get_ju_names(self):
-        return []
-
-    @property
-    def use_e(self):
-        return self.get_root_phys().use_e
-
-    @property
-    def use_pe(self):
-        return self.get_root_phys().use_pe
-
-    @property
-    def use_pa(self):
-        return self.get_root_phys().use_pa
-
-    @property
-    def need_e(self):
-        return False
-
-    @property
-    def need_pe(self):
-        return False
-
-    @property
-    def use_pa(self):
-        return False
-
-
-class NLJ2D_BaseDomain(Domain, Phys, NLJ2DMixIn):
+class NLJ2D_BaseDomain(Domain, Phys, NLJMixIn):
     def __init__(self, **kwargs):
         Domain.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJMixIn.__init__(self)
 
 
-class NLJ2D_BaseBdry(Bdry, Phys, NLJ2DMixIn):
+class NLJ2D_BaseBdry(Bdry, Phys, NLJMixIn):
     def __init__(self, **kwargs):
         Bdry.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJMixIn.__init__(self)
     pass
 
 
-class NLJ2D_BasePoint(Point, Phys, NLJ2DMixIn):
+class NLJ2D_BasePoint(Point, Phys, NLJMixIn):
     def __init__(self, **kwargs):
         Point.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJMixIn.__init__(self)
     pass
 
 
-class NLJ2D_BasePair(Pair, Phys, NLJ2DMixIn):
+class NLJ2D_BasePair(Pair, Phys, NLJMixIn):
     def __init__(self, **kwargs):
         Pair.__init__(self, **kwargs)
         Phys.__init__(self, **kwargs)
-        NLJ2DMixIn.__init__(self)
+        NLJMixIn.__init__(self)
 
 
 class NLJ2D_DefDomain(NLJ2D_BaseDomain):
@@ -144,7 +111,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         freq, omega = em2d.get_freq_omega()
         ind_vars = root.ind_vars
 
-        from petram.phys.common.nlj_common import build_common_nlj_coeff
+        from petram.phys.common.nlj_common_numba import build_common_nlj_coeff
 
         self._jitted_coeffs = build_common_nlj_coeff(ind_vars, bfunc, omega,
                                                  self._global_ns, self._local_ns,)
@@ -335,7 +302,7 @@ class NLJ2D_DefPair(NLJ2D_BasePair):
         return v
 
 
-class NLJ2D(PhysModule):
+class NLJ2D(PhysModule, NLSPhysMixIn):
     dim_fixed = True
 
     def __init__(self, **kwargs):
@@ -345,71 +312,9 @@ class NLJ2D(PhysModule):
         self['Boundary'] = NLJ2D_DefBdry()
 
     @property
-    def nuterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_u_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_u_terms")])
-
-    @property
-    def nvterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_v_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_v_terms")])
-
-    @property
-    def nterms(self):
-        '''
-        number of terms
-        '''
-        values = [0]
-        if self.use_e:
-            values.append(1)
-        if self.use_pe:
-            values.append(1)
-        if self.use_pa:
-            values.append(1)
-        values.append(1)
-        values.append(self.nuterms)
-        values.append(self.nvterms)
-        return values
-
     def verify_setting(self):
         return True, '', ''
 
-    def kfes2depvar(self, kfes):
-        root = self.get_root_phys()
-        dep_vars = root.dep_vars
-        dep_var = dep_vars[kfes]
-        return dep_var
-
-    def check_kfes(self, kfes):
-        values = []
-        if self.use_e:
-            values.append(21)
-        if self.use_pe:
-            values.append(22)
-        if self.use_pa:
-            values.append(23)
-        values.append(20)
-
-        if kfes < len(values):
-            return values[kfes]
-
-        dep_var = self.kfes2depvar(kfes)
-        dep_vars = self.dep_vars
-        jvname = self.get_root_phys().extra_vars_basev
-        juname = self.get_root_phys().extra_vars_baseu
-
-        if dep_var.startswith(juname):
-            return 18
-        elif dep_var.startswith(jvname):
-            return 19
-        else:
-            assert False, "Should not come here (unknown FES type : " + dep_var
 
     @property
     def dep_vars(self):
@@ -443,18 +348,6 @@ class NLJ2D(PhysModule):
         return self.dep_vars
 
     @property
-    def extra_vars_basev(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "v"
-        return basename
-
-    @property
-    def extra_vars_baseu(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "u"
-        return basename
-
-    @property
     def der_vars(self):
         return []
 
@@ -466,29 +359,6 @@ class NLJ2D(PhysModule):
     def vdim(self, val):
         pass
 
-    @property
-    def use_pe(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_pe"):
-                if x.need_pe:
-                    return True
-        return False
-
-    @property
-    def use_pa(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_pa"):
-                if x.need_pa:
-                    return True
-        return False
-
-    @property
-    def use_e(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_e"):
-                if x.need_e:
-                    return True
-        return False
 
     def get_fec_type(self, idx):
         '''

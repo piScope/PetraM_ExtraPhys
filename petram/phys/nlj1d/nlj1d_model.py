@@ -44,86 +44,11 @@ except:
     if mm.has_addon_access not in ["any", "nonlocalj"]:
         sys.modules[__name__].dependency_invalid = True
 
-
-class NLJ1DMixIn():
-    def count_v_terms(self):
-        return 0
-
-    def count_u_terms(self):
-        return 0
-
-    def count_m_terms(self):
-        return 0
-
-    def count_n_terms(self):
-        return 0
-
-    def get_jv_names(self):
-        return []
-
-    def get_ju_names(self):
-        return []
-
-    def get_jm_names(self):
-        return []
-
-    def get_jn_names(self):
-        return []
-
-    @property
-    def use_e(self):
-        return self.get_root_phys().use_e
-
-    @property
-    def use_pe(self):
-        return self.get_root_phys().use_pe
-
-    @property
-    def use_pa(self):
-        return self.get_root_phys().use_pa
-
-    @property
-    def need_e(self):
-        return False
-
-    @property
-    def need_pe(self):
-        return False
-
-    @property
-    def use_pa(self):
-        return False
-
-
-class NLJ1D_BaseDomain(Domain, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Domain.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-
-
-class NLJ1D_BaseBdry(Bdry, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Bdry.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-    pass
-
-
-class NLJ1D_BasePoint(Point, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Point.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-    pass
-
-
-class NLJ1D_BasePair(Pair, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Pair.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-
+from petram.phys.common.nlj_mixin import NLJPhysMixIn
+from petram.phys.common.nlj_mixin import NLJ_BaseDomain as NLJ1D_BaseDomain
+from petram.phys.common.nlj_mixin import NLJ_BaseBdry as NLJ1D_BaseBdry
+from petram.phys.common.nlj_mixin import NLJ_BasePoint as NLJ1D_BasePoint
+from petram.phys.common.nlj_mixin import NLJ_BasePair as NLJ1D_BasePair
 
 class NLJ1D_DefDomain(NLJ1D_BaseDomain):
     data = (('label1', VtableElement(None,
@@ -159,7 +84,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = root.ind_vars
 
-        from petram.phys.common.nlj_common import build_common_nlj_coeff
+        from petram.phys.common.nlj_common_numba import build_common_nlj_coeff
 
         self._jitted_coeffs = build_common_nlj_coeff(ind_vars, bfunc, omega,
                                                      self._global_ns, self._local_ns,)
@@ -202,10 +127,12 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
 
         if root.no_J_E:
             return loc
+
         loc.append((Exname, dep_vars[l], 1, 1))  # Jt -> Ex
         loc.append((Eyname, dep_vars[l], 1, 1))  # Jt -> Ey
         loc.append((Ezname, dep_vars[l], 1, 1))  # Jt -> Ez
 
+        print(loc)
         return loc
 
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
@@ -376,7 +303,7 @@ class NLJ1D_DefPair(NLJ1D_BasePair):
         return v
 
 
-class NLJ1D(PhysModule):
+class NLJ1D(PhysModule, NLJPhysMixIn):
     dim_fixed = True
 
     def __init__(self, **kwargs):
@@ -385,97 +312,11 @@ class NLJ1D(PhysModule):
         self['Domain'] = NLJ1D_DefDomain()
         self['Boundary'] = NLJ1D_DefBdry()
 
-    @property
-    def nuterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_u_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_u_terms")])
 
-    @property
-    def nvterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_v_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_v_terms")])
-
-    @property
-    def nmterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_m_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_m_terms")])
-
-    @property
-    def nnterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_n_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_n_terms")])
-
-    @property
-    def nterms(self):
-        '''
-        number of terms
-        '''
-        values = [0]
-        if self.use_e:
-            values.append(1)
-        if self.use_pe:
-            values.append(1)
-        if self.use_pa:
-            values.append(1)
-        values.append(1)
-        values.append(self.nuterms)
-        values.append(self.nvterms)
-        values.append(self.nmterms)
-        values.append(self.nnterms)
-        return values
 
     def verify_setting(self):
         return True, '', ''
 
-    def kfes2depvar(self, kfes):
-        root = self.get_root_phys()
-        dep_vars = root.dep_vars
-        dep_var = dep_vars[kfes]
-        return dep_var
-
-    def check_kfes(self, kfes):
-        values = []
-        if self.use_e:
-            values.append(21)
-        if self.use_pe:
-            values.append(22)
-        if self.use_pa:
-            values.append(23)
-        values.append(20)
-
-        if kfes < len(values):
-            return values[kfes]
-
-        dep_var = self.kfes2depvar(kfes)
-        dep_vars = self.dep_vars
-        jvname = self.get_root_phys().extra_vars_basev
-        juname = self.get_root_phys().extra_vars_baseu
-        jmname = self.get_root_phys().extra_vars_basem
-        jnname = self.get_root_phys().extra_vars_basen
-
-        if dep_var.startswith(juname):
-            return 18
-        elif dep_var.startswith(jvname):
-            return 19
-        elif dep_var.startswith(jmname):
-            return 24
-        elif dep_var.startswith(jnname):
-            return 25
-
-        else:
-            assert False, "Should not come here (unknown FES type : " + dep_var
 
     @property
     def dep_vars(self):
@@ -512,29 +353,6 @@ class NLJ1D(PhysModule):
     def dep_vars0(self):
         return self.dep_vars
 
-    @property
-    def extra_vars_basev(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "v"
-        return basename
-
-    @property
-    def extra_vars_baseu(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "u"
-        return basename
-
-    @property
-    def extra_vars_basem(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "m"
-        return basename
-
-    @property
-    def extra_vars_basen(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "n"
-        return basename
 
     @property
     def der_vars(self):
@@ -548,29 +366,6 @@ class NLJ1D(PhysModule):
     def vdim(self, val):
         pass
 
-    @property
-    def use_pe(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_pe"):
-                if x.need_pe:
-                    return True
-        return False
-
-    @property
-    def use_pa(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_pa"):
-                if x.need_pa:
-                    return True
-        return False
-
-    @property
-    def use_e(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_e"):
-                if x.need_e:
-                    return True
-        return False
 
     def get_fec_type(self, idx):
         '''
