@@ -13,8 +13,6 @@
     21: Ev  (vector E)
     22: Evpe (vector E perp)
     23: Evpa (vector E para)
-    24: Jpm  (J-vector part m-contribution)
-    25: Jpn  (J-vector part n-contribution)
 
 '''
 from numba import njit
@@ -52,22 +50,10 @@ class NLJ1DMixIn():
     def count_u_terms(self):
         return 0
 
-    def count_m_terms(self):
-        return 0
-
-    def count_n_terms(self):
-        return 0
-
     def get_jv_names(self):
         return []
 
     def get_ju_names(self):
-        return []
-
-    def get_jm_names(self):
-        return []
-
-    def get_jn_names(self):
         return []
 
     @property
@@ -94,6 +80,22 @@ class NLJ1DMixIn():
     def use_pa(self):
         return False
 
+    def get_jt_e_pe_pa_idx(self):
+        root = self.get_root_phys()
+        i_jt = -1
+        i_pe = -1
+        i_pa = -1
+        for i in range(4):
+            flag = root.check_kfes(i)
+            if flag == 20:
+                i_jt = i
+            elif flag == 21:
+                i_e = i
+            elif flag == 22:
+                i_pe = i
+            elif flag == 23:
+                i_pa = i
+        return i_jt, i_e, i_pe, i_pa
 
 class NLJ1D_BaseDomain(Domain, Phys, NLJ1DMixIn):
     def __init__(self, **kwargs):
@@ -263,11 +265,11 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                coeff = self._jitted_coeffs["proj_x"]
+                coeff = self._jitted_coeffs["mproj_x"]
             elif flag == 22:
-                coeff = self._jitted_coeffs["b_perp_x"]
+                coeff = self._jitted_coeffs["mb_perp_x"]
             else:
-                coeff = self._jitted_coeffs["b_para_x"]
+                coeff = self._jitted_coeffs["mb_para_x"]
             shape = (3, 1)
 
         elif c == Eyname:  # Ey -> Ev, Evpe, Evpa
@@ -276,11 +278,11 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                coeff = self._jitted_coeffs["proj_y"]
+                coeff = self._jitted_coeffs["mproj_y"]
             elif flag == 22:
-                coeff = self._jitted_coeffs["b_perp_y"]
+                coeff = self._jitted_coeffs["mb_perp_y"]
             else:
-                coeff = self._jitted_coeffs["b_para_y"]
+                coeff = self._jitted_coeffs["mb_para_y"]
             shape = (3, 1)
 
         elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
@@ -289,11 +291,11 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                coeff = self._jitted_coeffs["proj_z"]
+                coeff = self._jitted_coeffs["mproj_z"]
             elif flag == 22:
-                coeff = self._jitted_coeffs["b_perp_z"]
+                coeff = self._jitted_coeffs["mb_perp_z"]
             else:
-                coeff = self._jitted_coeffs["b_para_z"]
+                coeff = self._jitted_coeffs["mb_para_z"]
             shape = (3, 1)
 
         elif r == Exname:  # Jty -> Ex
@@ -402,22 +404,6 @@ class NLJ1D(PhysModule):
                        if hasattr(x, "count_v_terms")])
 
     @property
-    def nmterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_m_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_m_terms")])
-
-    @property
-    def nnterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_n_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_n_terms")])
-
-    @property
     def nterms(self):
         '''
         number of terms
@@ -432,8 +418,6 @@ class NLJ1D(PhysModule):
         values.append(1)
         values.append(self.nuterms)
         values.append(self.nvterms)
-        values.append(self.nmterms)
-        values.append(self.nnterms)
         return values
 
     def verify_setting(self):
@@ -462,18 +446,11 @@ class NLJ1D(PhysModule):
         dep_vars = self.dep_vars
         jvname = self.get_root_phys().extra_vars_basev
         juname = self.get_root_phys().extra_vars_baseu
-        jmname = self.get_root_phys().extra_vars_basem
-        jnname = self.get_root_phys().extra_vars_basen
 
         if dep_var.startswith(juname):
             return 18
         elif dep_var.startswith(jvname):
             return 19
-        elif dep_var.startswith(jmname):
-            return 24
-        elif dep_var.startswith(jnname):
-            return 25
-
         else:
             assert False, "Should not come here (unknown FES type : " + dep_var
 
@@ -496,10 +473,6 @@ class NLJ1D(PhysModule):
                 ret.extend(x.get_jv_names())
             if x.count_u_terms() > 0:
                 ret.extend(x.get_ju_names())
-            if x.count_m_terms() > 0:
-                ret.extend(x.get_jm_names())
-            if x.count_n_terms() > 0:
-                ret.extend(x.get_jn_names())
 
         return ret
 
@@ -522,18 +495,6 @@ class NLJ1D(PhysModule):
     def extra_vars_baseu(self):
         base = self.dep_vars_base_txt
         basename = base+self.dep_vars_suffix + "u"
-        return basename
-
-    @property
-    def extra_vars_basem(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "m"
-        return basename
-
-    @property
-    def extra_vars_basen(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "n"
         return basename
 
     @property
@@ -587,7 +548,7 @@ class NLJ1D(PhysModule):
         self.vt_order.preprocess_params(self)
 
         flag = self.check_kfes(idx)
-        if flag in [18, 19, 20, 21, 22, 23, 24, 25]:
+        if flag in [18, 19, 20, 21, 22, 23]:
             return self.order
         assert False, "unsupported flag: "+str(flag)
 
