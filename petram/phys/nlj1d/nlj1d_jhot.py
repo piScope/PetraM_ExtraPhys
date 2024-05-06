@@ -251,7 +251,6 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         return values
 
     def import_panel1_value(self, v):
-        print(v)
         check = super(NLJ1D_Jhot, self).import_panel1_value(v)
         self.An_mode = str(v[-8])
         self.use_sigma = bool(v[-7][-6][1])
