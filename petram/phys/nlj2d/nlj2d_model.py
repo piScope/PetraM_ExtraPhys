@@ -244,11 +244,11 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                coeff = self._jitted_coeffs["proj_xy"]
+                coeff = self._jitted_coeffs["mproj_xy"]
             elif flag == 22:
-                coeff = self._jitted_coeffs["b_perp_xy"]
+                coeff = self._jitted_coeffs["mb_perp_xy"]
             else:
-                coeff = self._jitted_coeffs["b_para_xy"]
+                coeff = self._jitted_coeffs["mb_para_xy"]
             shape = (3, 2)
 
         elif c == Ezname:  # Ez -> Ev, Evpe, Evpa
@@ -257,11 +257,11 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
                 assert False, "should not come here: " + str(flag)
 
             if flag == 21:
-                coeff = self._jitted_coeffs["proj_z"]
+                coeff = self._jitted_coeffs["mproj_z"]
             elif flag == 22:
-                coeff = self._jitted_coeffs["b_perp_z"]
+                coeff = self._jitted_coeffs["mb_perp_z"]
             else:
-                coeff = self._jitted_coeffs["b_para_z"]
+                coeff = self._jitted_coeffs["mb_para_z"]
             shape = (3, 1)
 
         elif r == Exyname:  # Jty -> Exy
