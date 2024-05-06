@@ -15,6 +15,8 @@
     23: Evpa (vector E para)
 
 '''
+from petram.model import Domain, Bdry, Point, Pair
+from petram.phys.phys_model import Phys, PhysModule
 import numpy as np
 
 import petram.debug as debug
@@ -89,9 +91,7 @@ class NLJMixIn():
         else:
             assert False, "should not come here" + str(dep_var)
         return idx, umode, flag
-    
-from petram.model import Domain, Bdry, Point, Pair
-from petram.phys.phys_model import Phys, PhysModule
+
 
 class NLJ_BaseDomain(Domain, Phys, NLJMixIn):
     def __init__(self, **kwargs):
@@ -121,7 +121,6 @@ class NLJ_BasePair(Pair, Phys, NLJMixIn):
         NLJMixIn.__init__(self)
 
 
-    
 class NLJ_PhysModule(PhysModule):
     @property
     def nuterms(self):
@@ -192,7 +191,6 @@ class NLJ_PhysModule(PhysModule):
                     return True
         return False
 
-    
     def kfes2depvar(self, kfes):
         root = self.get_root_phys()
         dep_vars = root.dep_vars
@@ -224,14 +222,17 @@ class NLJ_PhysModule(PhysModule):
         else:
             assert False, "Should not come here (unknown FES type : " + dep_var
 
-    
+
 class NLJ_Jhot(NLJ_BaseDomain):
 
-    
     @property
     def need_e(self):
         return True
-    
+
+    def get_itg_param(self):
+        raise NotImplementedError(
+            "get_itg_params must be implemented in subclass")
+
     def get_ju_names(self):
         names = self.current_names_xyz()
         return names[0]
@@ -297,7 +298,6 @@ class NLJ_Jhot(NLJ_BaseDomain):
             loc.append((dep_vars[i_jt], name, 1, 1))
         return loc
 
-
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
@@ -311,12 +311,14 @@ class NLJ_Jhot(NLJ_BaseDomain):
         # ju[0], jv[0]    -- constant contribution
         # ju[1:], jv[1:] --- diffusion contribution
 
+        itg2, itg3 = self.get_itg_params()
+
         if idx != 0:
             message = "Add diffusion + mass integrator contribution"
             mat = self._jitted_coeffs["weak_lap_perp"]
             self.add_integrator(engine, 'diffusion', mat, a.AddDomainIntegrator,
                                 PyVectorWeakPartialPartialIntegrator,
-                                itg_params=(3, 3, (0, -1, -1)))
+                                itg_params=itg3)
 
             if umode:
                 dterm = self._jitted_coeffs["dterms"][idx-1]
@@ -326,14 +328,14 @@ class NLJ_Jhot(NLJ_BaseDomain):
             dterm = self._jitted_coeffs["eye3x3"]*dterm
             self.add_integrator(engine, 'mass', dterm, a.AddDomainIntegrator,
                                 PyVectorMassIntegrator,
-                                itg_params=(3, 3, ))
+                                itg_params=itg2)
 
         else:  # constant term contribution
             message = "Add mass integrator contribution"
             dterm = self._jitted_coeffs["eye3x3"]*self._jitted_coeffs["dd0"]
             self.add_integrator(engine, 'mass', dterm, a.AddDomainIntegrator,
                                 PyVectorMassIntegrator,
-                                itg_params=(3, 3, ))
+                                itg_params=itg2)
         if real:
             dprint1(message, "(real)", dep_var, idx)
         else:
@@ -365,6 +367,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                     row, col, is_trans)
 
         i_jt, i_e, _i_pe, _i_pa = self.get_jt_e_pe_pa_idx()
+        itg2, itg3 = self.get_itg_params()
 
         if col == dep_vars[i_e]:   # E -> Ju, Jv
             idx, umode, flag = self.get_dep_var_idx(row)
@@ -382,7 +385,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         ccoeff,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ),)
+                                        itg_params=itg2)
 
                 if self.use_delta:
                     ccoeff = mbcross*slot["xy+xyi"]
@@ -391,7 +394,8 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         ccoeff,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ),)
+                                        itg_params=itg2)
+
                 if self.use_tau:
                     mat2 = self._jitted_coeffs["mtau_rank2"]*slot["cl+cli"]
                     mat3 = self._jitted_coeffs["mtau_rank3"]*slot["cl+cli"]
@@ -402,19 +406,21 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat2,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ))
+                                        itg_params=itg2)
+
                     self.add_integrator(engine,
                                         'mat3',
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
+
                     self.add_integrator(engine,
                                         'mat4',
                                         mat4,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
 
                 if self.use_eta:
                     mat2 = self._jitted_coeffs["meta_rank2"] * \
@@ -427,13 +433,15 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat2,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ))
+                                        itg_params=itg2)
+
                     self.add_integrator(engine,
                                         'mat3',
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
+
                 if self.use_xi:
                     mat3 = self._jitted_coeffs["mxi_rank3"] * \
                         slot["xi+xii"]
@@ -443,8 +451,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
-                    
+                                        itg_params=itg3)
 
                 #ccoeff = slot["(diag1+diagi1)*Mpara"]
                 # self.fill_divgrad_matrix(
@@ -457,7 +464,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                     ccoeff,
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
-                                    itg_params=(3, 3, ),)
+                                    itg_params=itg2)
 
             return
         if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
@@ -476,7 +483,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                     ccoeff,
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
-                                    itg_params=(3, 3, ),)
+                                    itg_params=itg2)
 
             else:
                 if self.use_sigma:
@@ -485,7 +492,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         ccoeff,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ),)
+                                        itg_params=itg2)
 
                 if self.use_delta:
                     ccoeff = mbcrosst*slot["conj(xy-xyi)"]
@@ -494,7 +501,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         ccoeff,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ),)
+                                        itg_params=itg2)
 
                 if self.use_tau:
                     mat2 = self._jitted_coeffs["mtau_rank2t"] * \
@@ -509,19 +516,19 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat2,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ))
+                                        itg_params=itg2)
                     self.add_integrator(engine,
                                         'mat3',
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
                     self.add_integrator(engine,
                                         'mat4',
                                         mat4,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
 
                 if self.use_eta:
                     mat2 = self._jitted_coeffs["meta_rank2t"] * \
@@ -534,13 +541,13 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat2,
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
-                                        itg_params=(3, 3, ))
+                                        itg_params=itg2)
                     self.add_integrator(engine,
                                         'mat3',
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
                 if self.use_xi:
                     mat3 = self._jitted_coeffs["mxi_rank3t"] * \
                         slot["conj(xi-xii)"]
@@ -550,7 +557,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
+                                        itg_params=itg3)
 
               #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
               # self.fill_divgrad_matrix(
@@ -558,4 +565,3 @@ class NLJ_Jhot(NLJ_BaseDomain):
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
-    

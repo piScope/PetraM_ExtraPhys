@@ -81,6 +81,9 @@ class NLJ2D_Jhot(NLJ_Jhot):
     def __init__(self, **kwargs):
         super(NLJ2D_Jhot, self).__init__(**kwargs)
 
+    def get_itg_params(self):
+        return (3, 3), (3, 3, (0, 1, -1))
+
     def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
             return 0
