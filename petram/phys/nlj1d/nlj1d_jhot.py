@@ -220,8 +220,8 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         panels.extend([
             ["An", None, 1, {"values": anbn_options}],
             ["Hot terms", None, 36, {"col": 6,
-                                     "labels":('Sig.', 'Del.', 'Tau',
-                                               'Pi', 'Eta', 'Xi')}],
+                                     "labels": ('Sig.', 'Del.', 'Tau',
+                                                'Pi', 'Eta', 'Xi')}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
             ["RA max kp*rho", None, 300, {}],
@@ -243,7 +243,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             self.An_mode = anbn_options[0]
 
         values.extend([self.An_mode,
-                      [self.use_sigma, self.use_delta, self.use_tau,
+                       [self.use_sigma, self.use_delta, self.use_tau,
                         self.use_pi, self.use_eta, self.use_xi],
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
@@ -277,7 +277,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
 
         names = self.current_names_xyz()
         udiag, vdiag = names
-        all_names = udiag + vdiag 
+        all_names = udiag + vdiag
 
         if dep_var not in all_names:
             return False
@@ -419,20 +419,44 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         PyVectorMassIntegrator,
                                         itg_params=(3, 3, ),)
                 if self.use_tau:
-                    mat = self._jitted_coeffs["mcurlpecurlpe"]*slot["cl+cli"]
+                    mat2 = self._jitted_coeffs["mtau_rank2_1d"]*slot["cl+cli"]
+                    mat3 = self._jitted_coeffs["mtau_rank3_1d"]*slot["cl+cli"]
+                    mat4 = self._jitted_coeffs["mtau_rank4_1d"]*slot["cl+cli"]
+
                     self.add_integrator(engine,
-                                        'diffusion',
-                                        mat,
+                                        'mat2',
+                                        mat2,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ))
+                    self.add_integrator(engine,
+                                        'mat3',
+                                        mat3,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
+                    self.add_integrator(engine,
+                                        'mat4',
+                                        mat4,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
                                         itg_params=(3, 3, (0, -1, -1)))
 
                 if self.use_eta:
-                    mat = self._jitted_coeffs["mbxcurlpe"] * \
-                        slot["eta+etai"]*(-1)
+                    mat2 = self._jitted_coeffs["meta_rank2_1d"] * \
+                        slot["eta+etai"]
+                    mat3 = self._jitted_coeffs["meta_rank3_1d"] * \
+                        slot["eta+etai"]
+
                     self.add_integrator(engine,
-                                        'eta',
-                                        mat,
+                                        'mat2',
+                                        mat2,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ))
+                    self.add_integrator(engine,
+                                        'mat3',
+                                        mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
                                         itg_params=(3, 3, (0, -1, -1)))
@@ -451,36 +475,6 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                     itg_params=(3, 3, ),)
 
             return
-        '''
-        if col == dep_vars[i_pa]:   # Epara -> Jm, Jn
-            idx, umode, flag = self._get_dep_var_idx(row)
-            assert flag in (
-                24, 25), "Epara should contribute only on Jm and Jn"
-
-            if idx == 0:
-                slot = self._jitted_coeffs["c0"]
-            else:
-                slot = self._jitted_coeffs["cterms"][idx-1]
-
-            if umode:
-                if self.use_eta:
-                    mat = self._jitted_coeffs["mbxcurlpe"]*slot["eta+etai"]
-                    self.add_integrator(engine,
-                                        'eta',
-                                        mat,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorPartialIntegrator,
-                                        itg_params=(3, 3, (0, -1, -1)))
-
-            else:
-                ccoeff = jomega.conj()
-                self.add_integrator(engine,
-                                    'mass',
-                                    ccoeff,
-                                    mbf.AddDomainIntegrator,
-                                    PyVectorMassIntegrator,
-                                    itg_params=(3, 3, ),)
-        '''
         if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
             idx, umode, flag = self._get_dep_var_idx(col)
 
@@ -500,61 +494,72 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                     itg_params=(3, 3, ),)
 
             else:
-                if flag in (18, 19):  # Ju, Jv
-                    if self.use_sigma:
-                        ccoeff = mbperp*slot["conj(diag-diagi)"]
-                        self.add_integrator(engine, 'mass',
-                                            ccoeff,
-                                            mbf.AddDomainIntegrator,
-                                            PyVectorMassIntegrator,
-                                            itg_params=(3, 3, ),)
+                if self.use_sigma:
+                    ccoeff = mbperp*slot["conj(diag-diagi)"]
+                    self.add_integrator(engine, 'mass',
+                                        ccoeff,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ),)
 
-                    if self.use_delta:
-                        ccoeff = mbcrosst*slot["conj(xy-xyi)"]
-                        self.add_integrator(engine,
-                                            'mass',
-                                            ccoeff,
-                                            mbf.AddDomainIntegrator,
-                                            PyVectorMassIntegrator,
-                                            itg_params=(3, 3, ),)
+                if self.use_delta:
+                    ccoeff = mbcrosst*slot["conj(xy-xyi)"]
+                    self.add_integrator(engine,
+                                        'mass',
+                                        ccoeff,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ),)
 
-                    if self.use_tau:
-                        mat = self._jitted_coeffs["mcurlpecurlpet"] * \
-                            slot["conj(cl-cli)"]
-                        self.add_integrator(engine,
-                                            'diffusion',
-                                            mat,
-                                            mbf.AddDomainIntegrator,
-                                            PyVectorPartialPartialIntegrator,
-                                            itg_params=(3, 3, (0, -1, -1)))
+                if self.use_tau:
+                    mat2 = self._jitted_coeffs["mtau_rank2t_1d"] * \
+                        slot["conj(cl-cli)"]
+                    mat3 = self._jitted_coeffs["mtau_rank3t_1d"] * \
+                        slot["conj(cl-cli)"]
+                    mat4 = self._jitted_coeffs["mtau_rank4t_1d"] * \
+                        slot["conj(cl-cli)"]
 
-                    if self.use_eta:
-                        mat = self._jitted_coeffs["mbxcurlpet"] * \
-                            slot["conj(eta-etai)"]*(-1)
-                        self.add_integrator(engine,
-                                            'eta',
-                                            mat,
-                                            mbf.AddDomainIntegrator,
-                                            PyVectorPartialIntegrator,
-                                            itg_params=(3, 3, (0, -1, -1)))
-                  #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
-                  # self.fill_divgrad_matrix(
-                  #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
-                else:
-                    assert False, "should not come here"
-                '''
-                elif flag in (24, 25):  # Jm, Jn
-                    if self.use_eta:
-                        mat = self._jitted_coeffs["mbxcurlpet"] * \
-                            slot["conj(eta-etai)"]
-                        self.add_integrator(engine,
-                                            'eta',
-                                            mat,
-                                            mbf.AddDomainIntegrator,
-                                            PyVectorPartialIntegrator,
-                                            itg_params=(3, 3, (0, -1, -1)))
-                '''
+                    self.add_integrator(engine,
+                                        'mat2',
+                                        mat2,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ))
+                    self.add_integrator(engine,
+                                        'mat3',
+                                        mat3,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
+                    self.add_integrator(engine,
+                                        'mat4',
+                                        mat4,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
 
+                if self.use_eta:
+                    mat2 = self._jitted_coeffs["meta_rank2t_1d"] * \
+                        slot["conj(eta-etai)"]
+                    mat3 = self._jitted_coeffs["meta_rank3t_1d"] * \
+                        slot["conj(eta-etai)"]
+
+                    self.add_integrator(engine,
+                                        'mat2',
+                                        mat2,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=(3, 3, ))
+                    self.add_integrator(engine,
+                                        'mat3',
+                                        mat3,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialIntegrator,
+                                        itg_params=(3, 3, (0, -1, -1)))
+
+              #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
+              # self.fill_divgrad_matrix(
+              #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
