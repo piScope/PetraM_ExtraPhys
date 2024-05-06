@@ -221,7 +221,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             ["An", None, 1, {"values": anbn_options}],
             ["Hot terms", None, 36, {"col": 6,
                                      "labels": ('Sig.', 'Del.', 'Tau',
-                                                'Pi', 'Eta', 'Xi')}],
+                                                'Pi(NI)', 'Eta', 'Xi(NI)')}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
             ["RA max kp*rho", None, 300, {}],
@@ -419,9 +419,9 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         PyVectorMassIntegrator,
                                         itg_params=(3, 3, ),)
                 if self.use_tau:
-                    mat2 = self._jitted_coeffs["mtau_rank2_1d"]*slot["cl+cli"]
-                    mat3 = self._jitted_coeffs["mtau_rank3_1d"]*slot["cl+cli"]
-                    mat4 = self._jitted_coeffs["mtau_rank4_1d"]*slot["cl+cli"]
+                    mat2 = self._jitted_coeffs["mtau_rank2"]*slot["cl+cli"]
+                    mat3 = self._jitted_coeffs["mtau_rank3"]*slot["cl+cli"]
+                    mat4 = self._jitted_coeffs["mtau_rank4"]*slot["cl+cli"]
 
                     self.add_integrator(engine,
                                         'mat2',
@@ -443,9 +443,9 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         itg_params=(3, 3, (0, -1, -1)))
 
                 if self.use_eta:
-                    mat2 = self._jitted_coeffs["meta_rank2_1d"] * \
+                    mat2 = self._jitted_coeffs["meta_rank2"] * \
                         slot["eta+etai"]
-                    mat3 = self._jitted_coeffs["meta_rank3_1d"] * \
+                    mat3 = self._jitted_coeffs["meta_rank3"] * \
                         slot["eta+etai"]
 
                     self.add_integrator(engine,
@@ -512,11 +512,11 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         itg_params=(3, 3, ),)
 
                 if self.use_tau:
-                    mat2 = self._jitted_coeffs["mtau_rank2t_1d"] * \
+                    mat2 = self._jitted_coeffs["mtau_rank2t"] * \
                         slot["conj(cl-cli)"]
-                    mat3 = self._jitted_coeffs["mtau_rank3t_1d"] * \
+                    mat3 = self._jitted_coeffs["mtau_rank3t"] * \
                         slot["conj(cl-cli)"]
-                    mat4 = self._jitted_coeffs["mtau_rank4t_1d"] * \
+                    mat4 = self._jitted_coeffs["mtau_rank4t"] * \
                         slot["conj(cl-cli)"]
 
                     self.add_integrator(engine,
@@ -539,9 +539,9 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
                                         itg_params=(3, 3, (0, -1, -1)))
 
                 if self.use_eta:
-                    mat2 = self._jitted_coeffs["meta_rank2t_1d"] * \
+                    mat2 = self._jitted_coeffs["meta_rank2t"] * \
                         slot["conj(eta-etai)"]
-                    mat3 = self._jitted_coeffs["meta_rank3t_1d"] * \
+                    mat3 = self._jitted_coeffs["meta_rank3t"] * \
                         slot["conj(eta-etai)"]
 
                     self.add_integrator(engine,
