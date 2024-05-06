@@ -28,6 +28,14 @@ data = (('B', VtableElement('bext', type='any',
                             guilabel='magnetic field',
                             default="=[0,0,0]",
                             tip="external magnetic field")),
+        ('jacB', VtableElement('jacB', type='any',
+                               guilabel='jac(B))',
+                               default="",
+                               tip="jacobian of B")),
+        ('hessB', VtableElement('hessB', type='any',
+                                guilabel='hess(B)',
+                                default="",
+                                tip="hessian of B")),
         ('dens', VtableElement('dens_e', type='float',
                                guilabel='density(m-3)',
                                default="1e19",
@@ -97,8 +105,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, tene, kpa, ky, kz = self.vt.make_value_or_expression(
-            self)
+        #B, Bdot, Bdot2, dens, temp, masse, charge, tene, kpa, ky, kz = self.vt.make_value_or_expression(self)
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -157,8 +164,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         freq, omega = em1d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, tene, kpa, ky, kz = self.vt.make_value_or_expression(
-            self)
+        gui_setting = self.vt.make_value_or_expression(self)
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -171,9 +177,7 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
                            mmin=mmin, mmax=mmin, ngrid=ngrid)
 
-        self._jitted_coeffs = build_coefficients(ind_vars, ky, kz, omega, B, dens, temp,
-                                                 mass, charge,
-                                                 tene, kpa,  fits,
+        self._jitted_coeffs = build_coefficients(ind_vars, omega, gui_setting, fits,
                                                  self.An_mode,
                                                  self._global_ns, self._local_ns,)
 
@@ -215,12 +219,9 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         panels = super(NLJ1D_Jhot, self).panel1_param()
         panels.extend([
             ["An", None, 1, {"values": anbn_options}],
-            ["use Sigma (hot S)", False, 3, {"text": ' '}],
-            ["use Delta (hot D)", False, 3, {"text": ' '}],
-            ["use Tau (hot Syy)", False, 3, {"text": ' '}],
-            ["use Pi (NI)", False, 3, {"text": ' '}],
-            ["use Eta (hot XZ)", False, 3, {"text": ' '}],
-            ["use Xi (NI)", False, 3, {"text": ' '}],
+            ["Hot terms", None, 36, {"col": 6,
+                                     "labels":('Sig.', 'Del.', 'Tau',
+                                               'Pi', 'Eta', 'Xi')}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
             ["RA max kp*rho", None, 300, {}],
@@ -241,22 +242,24 @@ class NLJ1D_Jhot(NLJ1D_BaseDomain):
         if self.An_mode not in anbn_options:
             self.An_mode = anbn_options[0]
 
-        values.extend([self.An_mode, self.use_sigma, self.use_delta, self.use_tau,
-                       self.use_pi, self.use_eta, self.use_xi,
+        values.extend([self.An_mode,
+                      [self.use_sigma, self.use_delta, self.use_tau,
+                        self.use_pi, self.use_eta, self.use_xi],
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
 
         return values
 
     def import_panel1_value(self, v):
+        print(v)
         check = super(NLJ1D_Jhot, self).import_panel1_value(v)
-        self.An_mode = str(v[-13])
-        self.use_sigma = bool(v[-12])
-        self.use_delta = bool(v[-11])
-        self.use_tau = bool(v[-10])
-        self.use_pi = bool(v[-9])
-        self.use_eta = bool(v[-8])
-        self.use_xi = bool(v[-7])
+        self.An_mode = str(v[-8])
+        self.use_sigma = bool(v[-7][-6][1])
+        self.use_delta = bool(v[-7][-5][1])
+        self.use_tau = bool(v[-7][-4][1])
+        self.use_pi = bool(v[-7][-3][1])
+        self.use_eta = bool(v[-7][-2][1])
+        self.use_xi = bool(v[-7][-1][1])
         self.ra_nmax = int(v[-6])
         self.ra_kprmax = float(v[-5])
         self.ra_mmin = int(v[-4])
