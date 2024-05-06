@@ -5,7 +5,7 @@ import numpy as np
 
 from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
-from petram.phys.nlj1d.nlj1d_model import NLJ1D_BaseBdry
+from petram.phys.common.nlj_mixins import NLJ_BaseBdry
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ1D_ColdEdge')
@@ -33,7 +33,7 @@ def bdry_constraints():
     return [NLJ1D_ColdEdge]
 
 
-class NLJ1D_ColdEdge(NLJ1D_BaseBdry):
+class NLJ1D_ColdEdge(NLJ_BaseBdry):
     has_essential = True
     nlterms = []
     can_timedpendent = True

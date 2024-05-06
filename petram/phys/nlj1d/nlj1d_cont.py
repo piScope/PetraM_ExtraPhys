@@ -5,7 +5,7 @@ import numpy as np
 
 from petram.phys.coefficient import SCoeff, VCoeff
 from petram.phys.phys_model import Phys, PhysModule
-from petram.phys.nlj1d.nlj1d_model import NLJ1D_BaseBdry
+from petram.phys.common.nlj_mixins import NLJ_BaseBdry
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ1D_Continuity')
@@ -20,7 +20,7 @@ def bdry_constraints():
     return [NLJ1D_Continuity]
 
 
-class NLJ1D_Continuity(NLJ1D_BaseBdry):
+class NLJ1D_Continuity(NLJ_BaseBdry):
     is_essential = False
 
     def __init__(self, **kwargs):

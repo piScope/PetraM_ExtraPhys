@@ -4,17 +4,12 @@ This model consider
    J_perp = wp^2/w n^2 exp(-l)In/l E_perp
 
 '''
-from petram.phys.common.vector_fe_helper import VectorFEHelper_mxin
 from petram.mfem_config import use_parallel
-from petram.phys.nlj2d.nlj2d_model import NLJ2D_BaseDomain
+from petram.phys.common.nlj_mixins import NLJ_Jhot
 from mfem.common.mpi_debug import nicePrint
 from petram.phys.vtable import VtableElement, Vtable
 
 import numpy as np
-
-from petram.model import Domain, Bdry, Edge, Point, Pair
-from petram.phys.coefficient import SCoeff, VCoeff
-from petram.phys.phys_model import Phys, PhysModule
 
 import petram.debug as debug
 dprint1, dprint2, dprint3 = debug.init_dprints('NLJ2D_Jhot')
@@ -28,6 +23,14 @@ data = (('B', VtableElement('bext', type='any',
                             guilabel='magnetic field',
                             default="=[0,0,0]",
                             tip="external magnetic field")),
+        ('jacB', VtableElement('jacB', type='any',
+                               guilabel='jac(B))',
+                               default="",
+                               tip="jacobian of B")),
+        ('hessB', VtableElement('hessB', type='any',
+                                guilabel='hess(B)',
+                                default="",
+                                tip="hessian of B")),
         ('dens', VtableElement('dens_e', type='float',
                                guilabel='density(m-3)',
                                default="1e19",
@@ -69,7 +72,7 @@ component_options = ("mass", "mass + curlcurl")
 anbn_options = ("kpara->0 + col.", "kpara from kz")
 
 
-class NLJ2D_Jhot(NLJ2D_BaseDomain):
+class NLJ2D_Jhot(NLJ_Jhot):
     has_essential = False
     nlterms = []
     has_3rd_panel = True
@@ -77,10 +80,6 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
 
     def __init__(self, **kwargs):
         super(NLJ2D_Jhot, self).__init__(**kwargs)
-
-    @property
-    def need_pe(self):
-        return True
 
     def _count_perp_terms(self):
         if not hasattr(self, "_global_ns"):
@@ -92,8 +91,6 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
             self._mmin_bk = -1
 
         self.vt.preprocess_params(self)
-        B, dens, temp, masse, charge, tene, _kpa, kz = self.vt.make_value_or_expression(
-            self)
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -115,32 +112,6 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
 
         return int(self._nperpterms)
 
-    def get_ju_names(self):
-        names = self.current_names_xyz()
-        return names[0]
-
-    def get_jv_names(self):
-        names = self.current_names_xyz()
-        return names[1]
-
-    def count_u_terms(self):
-        return len(self.get_ju_names())
-
-    def count_v_terms(self):
-        return len(self.get_jv_names())
-
-    def current_names_xyz(self):
-        # all possible names without considering run-condition
-        baseu = self.get_root_phys().extra_vars_baseu
-        basev = self.get_root_phys().extra_vars_basev
-
-        udiag = [baseu + self.name() + str(i+1)
-                 for i in range(self._count_perp_terms())]
-        vdiag = [basev + self.name() + str(i+1)
-                 for i in range(self._count_perp_terms())]
-
-        return udiag, vdiag
-
     @property
     def jited_coeff(self):
         return self._jited_coeff
@@ -153,8 +124,7 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
         freq, omega = em2d.get_freq_omega()
         ind_vars = self.get_root_phys().ind_vars
 
-        B, dens, temp, mass, charge, tene, kpa, kz = self.vt.make_value_or_expression(
-            self)
+        gui_setting = self.vt.make_value_or_expression(self)
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
@@ -167,15 +137,12 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
                            mmin=mmin, mmax=mmin, ngrid=ngrid)
 
-        self._jitted_coeffs = build_coefficients(ind_vars, kz, omega, B, dens, temp,
-                                                 mass, charge,
-                                                 tene, kpa,  fits,
+        self._jitted_coeffs = build_coefficients(ind_vars, omega, gui_setting, fits,
                                                  self.An_mode,
                                                  self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
-        Domain.attribute_set(self, v)
-        Phys.attribute_set(self, v)
+        v = super(NLJ2D_Jhot, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
         v['ra_nmax'] = 5
@@ -211,12 +178,9 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
         panels = super(NLJ2D_Jhot, self).panel1_param()
         panels.extend([
             ["An", None, 1, {"values": anbn_options}],
-            ["use Sigma (hot S)", False, 3, {"text": ' '}],
-            ["use Delta (hot D)", False, 3, {"text": ' '}],
-            ["use Tau (hot Syy)", False, 3, {"text": ' '}],
-            ["use Pi (NI)", False, 3, {"text": ' '}],
-            ["use Eta (NI)", False, 3, {"text": ' '}],
-            ["use Xi (NI)", False, 3, {"text": ' '}],
+            ["Hot terms", None, 36, {"col": 6,
+                                     "labels": ('Sig.', 'Del.', 'Tau',
+                                                'Pi(NI)', 'Eta', 'Xi')}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
             ["RA max kp*rho", None, 300, {}],
@@ -237,21 +201,22 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
         if self.An_mode not in anbn_options:
             self.An_mode = anbn_options[0]
 
-        values.extend([self.An_mode, self.use_sigma, self.use_delta, self.use_tau,
-                       self.use_pi, self.use_eta, self.use_xi,
+        values.extend([self.An_mode,
+                       [self.use_sigma, self.use_delta, self.use_tau,
+                        self.use_pi, self.use_eta, self.use_xi],
                        self.ra_nmax, self.ra_kprmax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
         return values
 
     def import_panel1_value(self, v):
         check = super(NLJ2D_Jhot, self).import_panel1_value(v)
-        self.An_mode = str(v[-13])
-        self.use_sigma = bool(v[-12])
-        self.use_delta = bool(v[-11])
-        self.use_tau = bool(v[-10])
-        self.use_pi = bool(v[-9])
-        self.use_eta = bool(v[-8])
-        self.use_xi = bool(v[-7])
+        self.An_mode = str(v[-8])
+        self.use_sigma = bool(v[-7][-6][1])
+        self.use_delta = bool(v[-7][-5][1])
+        self.use_tau = bool(v[-7][-4][1])
+        self.use_pi = bool(v[-7][-3][1])
+        self.use_eta = bool(v[-7][-2][1])
+        self.use_xi = bool(v[-7][-1][1])
         self.ra_nmax = int(v[-6])
         self.ra_kprmax = float(v[-5])
         self.ra_mmin = int(v[-4])
@@ -260,6 +225,8 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
         #self.debug_option = str(v[-1])
         return True
 
+
+'''    
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
         check = root.check_kfes(kfes)
@@ -373,9 +340,9 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
 
     def add_mix_contribution2(self, engine, mbf, row, col, is_trans, _is_conj,
                               real=True):
-        '''
-        fill mixed contribution
-        '''
+        #
+        #fill mixed contribution
+        #
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
                                                 PyVectorPartialPartialIntegrator)
 
@@ -499,3 +466,4 @@ class NLJ2D_Jhot(NLJ2D_BaseDomain):
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
+'''

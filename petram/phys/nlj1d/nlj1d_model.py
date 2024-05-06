@@ -20,8 +20,6 @@ from petram.mfem_config import use_parallel
 import sys
 import numpy as np
 
-from petram.model import Domain, Bdry, Point, Pair
-from petram.phys.phys_model import Phys, PhysModule
 from petram.phys.vtable import VtableElement, Vtable
 
 import petram.debug as debug
@@ -43,91 +41,12 @@ except:
         sys.modules[__name__].dependency_invalid = True
 
 
-class NLJ1DMixIn():
-    def count_v_terms(self):
-        return 0
-
-    def count_u_terms(self):
-        return 0
-
-    def get_jv_names(self):
-        return []
-
-    def get_ju_names(self):
-        return []
-
-    @property
-    def use_e(self):
-        return self.get_root_phys().use_e
-
-    @property
-    def use_pe(self):
-        return self.get_root_phys().use_pe
-
-    @property
-    def use_pa(self):
-        return self.get_root_phys().use_pa
-
-    @property
-    def need_e(self):
-        return False
-
-    @property
-    def need_pe(self):
-        return False
-
-    @property
-    def use_pa(self):
-        return False
-
-    def get_jt_e_pe_pa_idx(self):
-        root = self.get_root_phys()
-        i_jt = -1
-        i_pe = -1
-        i_pa = -1
-        for i in range(4):
-            flag = root.check_kfes(i)
-            if flag == 20:
-                i_jt = i
-            elif flag == 21:
-                i_e = i
-            elif flag == 22:
-                i_pe = i
-            elif flag == 23:
-                i_pa = i
-        return i_jt, i_e, i_pe, i_pa
-
-class NLJ1D_BaseDomain(Domain, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Domain.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-
-
-class NLJ1D_BaseBdry(Bdry, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Bdry.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-    pass
-
-
-class NLJ1D_BasePoint(Point, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Point.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-    pass
-
-
-class NLJ1D_BasePair(Pair, Phys, NLJ1DMixIn):
-    def __init__(self, **kwargs):
-        Pair.__init__(self, **kwargs)
-        Phys.__init__(self, **kwargs)
-        NLJ1DMixIn.__init__(self)
-
-
-class NLJ1D_DefDomain(NLJ1D_BaseDomain):
+from petram.phys.common.nlj_mixins import (NLJ_BaseDomain,
+                                           NLJ_BaseBdry,
+                                           NLJ_BasePoint,
+                                           NLJ_BasePair,
+                                           NLJ_PhysModule)
+class NLJ1D_DefDomain(NLJ_BaseDomain):
     data = (('label1', VtableElement(None,
                                      guilabel=None,
                                      default="Default domain couples non-local curent model with EM1D",
@@ -332,7 +251,7 @@ class NLJ1D_DefDomain(NLJ1D_BaseDomain):
                             itg_params=shape)
 
 
-class NLJ1D_DefBdry(NLJ1D_BaseBdry):
+class NLJ1D_DefBdry(NLJ_BaseBdry):
     can_delete = False
     is_essential = False
 
@@ -349,7 +268,7 @@ class NLJ1D_DefBdry(NLJ1D_BaseBdry):
         return []
 
 
-class NLJ1D_DefPoint(NLJ1D_BasePoint):
+class NLJ1D_DefPoint(NLJ_BasePoint):
     can_delete = False
     is_essential = False
 
@@ -363,7 +282,7 @@ class NLJ1D_DefPoint(NLJ1D_BasePoint):
         return v
 
 
-class NLJ1D_DefPair(NLJ1D_BasePair):
+class NLJ1D_DefPair(NLJ_BasePair):
     can_delete = False
     is_essential = False
     is_complex = False
@@ -378,7 +297,7 @@ class NLJ1D_DefPair(NLJ1D_BasePair):
         return v
 
 
-class NLJ1D(PhysModule):
+class NLJ1D(NLJ_PhysModule):
     dim_fixed = True
 
     def __init__(self, **kwargs):
@@ -387,72 +306,9 @@ class NLJ1D(PhysModule):
         self['Domain'] = NLJ1D_DefDomain()
         self['Boundary'] = NLJ1D_DefBdry()
 
-    @property
-    def nuterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_u_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_u_terms")])
-
-    @property
-    def nvterms(self):
-        if "Domain" not in self:
-            return 0
-        return np.sum([x.count_v_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_v_terms")])
-
-    @property
-    def nterms(self):
-        '''
-        number of terms
-        '''
-        values = [0]
-        if self.use_e:
-            values.append(1)
-        if self.use_pe:
-            values.append(1)
-        if self.use_pa:
-            values.append(1)
-        values.append(1)
-        values.append(self.nuterms)
-        values.append(self.nvterms)
-        return values
 
     def verify_setting(self):
         return True, '', ''
-
-    def kfes2depvar(self, kfes):
-        root = self.get_root_phys()
-        dep_vars = root.dep_vars
-        dep_var = dep_vars[kfes]
-        return dep_var
-
-    def check_kfes(self, kfes):
-        values = []
-        if self.use_e:
-            values.append(21)
-        if self.use_pe:
-            values.append(22)
-        if self.use_pa:
-            values.append(23)
-        values.append(20)
-
-        if kfes < len(values):
-            return values[kfes]
-
-        dep_var = self.kfes2depvar(kfes)
-        dep_vars = self.dep_vars
-        jvname = self.get_root_phys().extra_vars_basev
-        juname = self.get_root_phys().extra_vars_baseu
-
-        if dep_var.startswith(juname):
-            return 18
-        elif dep_var.startswith(jvname):
-            return 19
-        else:
-            assert False, "Should not come here (unknown FES type : " + dep_var
 
     @property
     def dep_vars(self):
@@ -486,18 +342,6 @@ class NLJ1D(PhysModule):
         return self.dep_vars
 
     @property
-    def extra_vars_basev(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "v"
-        return basename
-
-    @property
-    def extra_vars_baseu(self):
-        base = self.dep_vars_base_txt
-        basename = base+self.dep_vars_suffix + "u"
-        return basename
-
-    @property
     def der_vars(self):
         return []
 
@@ -508,30 +352,6 @@ class NLJ1D(PhysModule):
     @vdim.setter
     def vdim(self, val):
         pass
-
-    @property
-    def use_pe(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_pe"):
-                if x.need_pe:
-                    return True
-        return False
-
-    @property
-    def use_pa(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_pa"):
-                if x.need_pa:
-                    return True
-        return False
-
-    @property
-    def use_e(self):
-        for x in self.walk_enabled():
-            if hasattr(x, "need_e"):
-                if x.need_e:
-                    return True
-        return False
 
     def get_fec_type(self, idx):
         '''
