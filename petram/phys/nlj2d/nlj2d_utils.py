@@ -39,9 +39,9 @@ def simple_hessB_2D(f):
         dBdyy = f(x, y+delta) + f(x, y-delta) - 2*f(x, y)
         dBdyy /= delta
         dBdyy /= delta
-        dBdxy = f(x+delta, y+delta) - f(x+delta, y-delta) - \
-            f(x-delta, y+delta) + f(x-delta, y-delta)
-        dBdx /= 2*delta
+        dBdxy = (f(x+delta, y+delta) - f(x+delta, y-delta) - 
+                 f(x-delta, y+delta) + f(x-delta, y-delta))
+        dBdxy /= 2*delta
         dBdxy /= 2*delta
 
         ret[0, 0, 0] = dBdxx[0]
