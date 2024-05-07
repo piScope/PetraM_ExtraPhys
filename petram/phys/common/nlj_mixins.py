@@ -349,6 +349,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
                                                 PyVectorPartialIntegrator,
                                                 PyVectorPartialPartialIntegrator)
+        from petram.phys.common.nlj_common import anbn_options
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars
@@ -386,6 +387,16 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
                                         itg_params=itg2)
+                    if self.An_mode == anbn_options[2]:
+                        dprint1(
+                            "!!!!!!!!!!! adding first order kpara correction (1)")
+                        ccoeff = self._jitted_coeffs["lap_para"] * \
+                            slot["diag1+diag1i"]
+                        self.add_integrator(engine, 'mass',
+                                            ccoeff,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialPartialIntegrator,
+                                            itg_params=itg3,)
 
                 if self.use_delta:
                     ccoeff = mbcross*slot["xy+xyi"]
@@ -453,9 +464,6 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
 
-                #ccoeff = slot["(diag1+diagi1)*Mpara"]
-                # self.fill_divgrad_matrix(
-                #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             else:
                 # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
                 ccoeff = jomega.conj()
@@ -493,6 +501,17 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
                                         itg_params=itg2)
+
+                    if self.An_mode == anbn_options[2]:
+                        dprint1(
+                            "!!!!!!!!!!! adding first order kpara correction (2)")
+                        ccoeff = self._jitted_coeffs["lap_para"] * \
+                            slot["conj(diag1-diag1i)"]
+                        self.add_integrator(engine, 'mass',
+                                            ccoeff,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialPartialIntegrator,
+                                            itg_params=itg3,)
 
                 if self.use_delta:
                     ccoeff = mbcrosst*slot["conj(xy-xyi)"]
@@ -559,9 +578,6 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
 
-              #ccoeff = slot["conj(diag1-diagi1)*Mpara"]
-              # self.fill_divgrad_matrix(
-              #    engine, mbf, rowi, colj, ccoeff, real, kz=kz)
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)

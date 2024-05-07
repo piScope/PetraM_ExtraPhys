@@ -4,6 +4,7 @@ This model consider
    J_perp = wp^2/w n^2 exp(-l)In/l E_perp
 
 '''
+from petram.phys.common.nlj_common import anbn_options
 from petram.mfem_config import use_parallel
 from petram.phys.common.nlj_mixins import NLJ_Jhot
 from mfem.common.mpi_debug import nicePrint
@@ -72,10 +73,6 @@ data = (('B', VtableElement('bext', type='any',
 
 def domain_constraints():
     return [NLJ1D_Jhot]
-
-
-component_options = ("mass", "mass + curlcurl")
-anbn_options = ("kpara->0 + col.", "kpara from kz")
 
 
 class NLJ1D_Jhot(NLJ_Jhot):
@@ -160,7 +157,6 @@ class NLJ1D_Jhot(NLJ_Jhot):
         v['ra_ngrid'] = 300
         v['ra_pmax'] = 15
         v['An_mode'] = anbn_options[0]
-        v['use_4_components'] = component_options[0]
         v['debug_option'] = ''
 
         v['use_sigma'] = True
@@ -186,7 +182,7 @@ class NLJ1D_Jhot(NLJ_Jhot):
     def panel1_param(self):
         panels = super(NLJ1D_Jhot, self).panel1_param()
         panels.extend([
-            ["An", None, 1, {"values": anbn_options}],
+            ["An/Bn", None, 1, {"values": anbn_options}],
             ["Hot terms", None, 36, {"col": 6,
                                      "labels": ('Sig.', 'Del.', 'Tau',
                                                 'Pi(NI)', 'Eta', 'Xi')}],
