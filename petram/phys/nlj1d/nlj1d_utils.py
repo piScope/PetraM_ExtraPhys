@@ -1,4 +1,6 @@
 import numpy as np
+from numpy.linalg import norm
+
 from petram.helper.variables import variable
 delta = 0.001
 
@@ -12,9 +14,9 @@ def simple_jacB_1D(f):
         ret = np.zeros((3, 3), dtype=np.float64)
 
         B1 = f(x+delta/2.)
-        B1 /= np.sqrt(np.sum(B1**2))
+        B1 /= norm(B1)
         B2 = f(x-delta/2.)
-        B2 /= np.sqrt(np.sum(B2**2))
+        B2 /= norm(B2)
 
         B = B1 - B2
         B /= delta
@@ -35,11 +37,11 @@ def simple_hessB_1D(f):
         '''
         ret = np.zeros((3, 3, 3), dtype=np.float64)
         B2 = f(x+delta)
-        B2 /= np.sqrt(np.sum(B2**2))
+        B2 /= norm(B2)
         B1 = f(x)
-        B1 /= np.sqrt(np.sum(B1**2))
+        B1 /= norm(B1)
         B0 = f(x-delta)
-        B0 /= np.sqrt(np.sum(B0**2))
+        B0 /= norm(B0)
 
         B = B2 + B0 - 2*B1
         B /= delta

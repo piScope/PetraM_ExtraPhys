@@ -1,4 +1,6 @@
 import numpy as np
+from numpy.linalg import norm
+
 from petram.helper.variables import variable
 delta = 0.001
 
@@ -11,20 +13,21 @@ def simple_jacB_2D(f):
         '''
         ret = np.zeros((3, 3), dtype=np.float64)
         B1x = f(x+delta/2., y)
-        B1x /= np.sqrt(np.sum(B1x**2))
+        B1x /= norm(B1x)
         B2x = f(x-delta/2., y)
-        B2x /= np.sqrt(np.sum(B2x**2))
+        B2x /= norm(B2x)
 
         dBdx = B1x - B2x
         dBdx /= delta
 
         B1y = f(x, y+delta/2.)
-        B1y /= np.sqrt(np.sum(B1y**2))
+        B1y /= norm(B1y)
         B2y = f(x, y-delta/2.)
-        B2y /= np.sqrt(np.sum(B2y**2))
+        B2y /= norm(B2y)
 
         dBdy = B1y - B2y
         dBdy /= delta
+
         ret[0, 0] = dBdx[0]
         ret[1, 0] = dBdx[1]
         ret[2, 0] = dBdx[2]
@@ -44,26 +47,26 @@ def simple_hessB_2D(f):
 
         '''
         B0 = f(x, y)
-        B0 /= np.sqrt(np.sum(B0**2))
+        B0 /= norm(B0)
 
         B1x = f(x+delta, y)
-        B1x /= np.sqrt(np.sum(B1x**2))
+        B1x /= norm(B1x)
         B2x = f(x-delta, y)
-        B2x /= np.sqrt(np.sum(B2x**2))
+        B2x /= norm(B2x)
 
         B1y = f(x, y+delta)
-        B1y /= np.sqrt(np.sum(B1y**2))
+        B1y /= norm(B1y)
         B2y = f(x, y-delta)
-        B2y /= np.sqrt(np.sum(B2y**2))
+        B2y /= norm(B2y)
 
         B11 = f(x+delta, y+delta)
-        B11 /= np.sqrt(np.sum(B11**2))
+        B11 /= norm(B11)
         B12 = f(x+delta, y-delta)
-        B12 /= np.sqrt(np.sum(B12**2))
+        B12 /= norm(B12)
         B21 = f(x-delta, y+delta)
-        B21 /= np.sqrt(np.sum(B21**2))
+        B21 /= norm(B21)
         B22 = f(x-delta, y-delta)
-        B22 /= np.sqrt(np.sum(B22**2))
+        B22 /= norm(B22)
 
         ret = np.zeros((3, 3, 3), dtype=np.float64)
         #dBdxx = f(x+delta, y) + f(x-delta, y) - 2*f(x, y)
