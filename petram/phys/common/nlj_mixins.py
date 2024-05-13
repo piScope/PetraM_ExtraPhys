@@ -301,7 +301,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
     def add_bf_contribution(self, engine, a, real=True, kfes=0):
 
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
-                                                PyVectorWeakPartialPartialIntegrator,)
+                                                PyVectorDiffusionIntegrator,)
 
         root = self.get_root_phys()
         dep_var = root.kfes2depvar(kfes)
@@ -317,7 +317,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
             message = "Add diffusion + mass integrator contribution"
             mat = self._jitted_coeffs["weak_lap_perp"]
             self.add_integrator(engine, 'diffusion', mat, a.AddDomainIntegrator,
-                                PyVectorWeakPartialPartialIntegrator,
+                                PyVectorDiffusionIntegrator,
                                 itg_params=itg3)
 
             if umode:
@@ -349,6 +349,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
         from petram.helper.pybilininteg import (PyVectorMassIntegrator,
                                                 PyVectorPartialIntegrator,
                                                 PyVectorPartialPartialIntegrator)
+
         from petram.phys.common.nlj_common import anbn_options
 
         root = self.get_root_phys()
@@ -432,6 +433,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
                                         itg_params=itg3)
+
 
                 if self.use_eta:
                     mat2 = self._jitted_coeffs["meta_rank2"] * \
@@ -536,12 +538,14 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
                                         itg_params=itg2)
+
                     self.add_integrator(engine,
                                         'mat3',
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
+
                     self.add_integrator(engine,
                                         'mat4',
                                         mat4,
@@ -561,6 +565,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
                                         itg_params=itg2)
+
                     self.add_integrator(engine,
                                         'mat3',
                                         mat3,
