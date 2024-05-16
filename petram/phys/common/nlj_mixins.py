@@ -514,7 +514,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                     if self.An_mode == anbn_options[2]:
                         dprint1(
                             "!!!!!!!!!!! adding first order kpara correction (2)")
-                        ccoeff = self._jitted_coeffs["lap_para"] * \
+                        ccoeff = self._jitted_coeffs["lap_parat"] * \
                             slot["conj(diag1-diag1i)"]
                         self.add_integrator(engine, 'mass',
                                             ccoeff,
