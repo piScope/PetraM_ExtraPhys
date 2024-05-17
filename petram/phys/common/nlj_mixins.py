@@ -454,16 +454,17 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
                     '''
-                    dprint1(
-                        "!!!!!!!!!!! adding first order kpara correction (3)")
-                    mat4 = self._jitted_coeffs["meta_rank4"] * \
-                        slot["eta1+eta1i"]
-                    self.add_integrator(engine,
-                                        'mat4',
-                                        mat4,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorPartialPartialIntegrator,
-                                        itg_params=itg3)
+                    if self.An_mode == anbn_options[2]:
+                        dprint1(
+                            "!!!!!!!!!!! adding first order kpara correction (3)")
+                        mat4 = self._jitted_coeffs["meta_rank4"] * \
+                            slot["eta1+eta1i"]
+                        self.add_integrator(engine,
+                                            'mat4',
+                                            mat4,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialPartialIntegrator,
+                                            itg_params=itg3)
 
                 if self.use_xi:
                     mat3 = self._jitted_coeffs["mxi_rank3"] * \
@@ -584,17 +585,18 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
                     '''
-                    dprint1(
-                        "!!!!!!!!!!! adding first order kpara correction (4)")
+                    if self.An_mode == anbn_options[2]:
+                        dprint1(
+                            "!!!!!!!!!!! adding first order kpara correction (4)")
 
-                    mat4 = self._jitted_coeffs["meta_rank4t"] * \
-                        slot["conj(eta1-eta1i)"]
-                    self.add_integrator(engine,
-                                        'mat4',
-                                        mat4,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorPartialPartialIntegrator,
-                                        itg_params=itg3)
+                        mat4 = self._jitted_coeffs["meta_rank4t"] * \
+                            slot["conj(eta1-eta1i)"]
+                        self.add_integrator(engine,
+                                            'mat4',
+                                            mat4,
+                                            mbf.AddDomainIntegrator,
+                                            PyVectorPartialPartialIntegrator,
+                                            itg_params=itg3)
 
                 if self.use_xi:
                     mat3 = self._jitted_coeffs["mxi_rank3t"] * \
