@@ -409,9 +409,9 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         itg_params=itg2)
 
                 if self.use_tau:
-                    '''
                     mat2 = self._jitted_coeffs["mtau_rank2"]*slot["cl+cli"]
                     mat3 = self._jitted_coeffs["mtau_rank3"]*slot["cl+cli"]
+                    mat4 = self._jitted_coeffs["mtau_rank4"]*slot["cl+cli"]
                     self.add_integrator(engine,
                                         'mat2',
                                         mat2,
@@ -432,17 +432,9 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialPartialIntegrator,
                                         itg_params=itg3)
-                    '''
-                    mat4 = self._jitted_coeffs["meta_rank4"] * \
-                        slot["eta1+eta1i"]
-                    self.add_integrator(engine,
-                                        'mat4',
-                                        mat4,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorPartialPartialIntegrator,
-                                        itg_params=itg3)
 
                 if self.use_eta:
+                    '''
                     mat2 = self._jitted_coeffs["meta_rank2"] * \
                         slot["eta+etai"]
                     mat3 = self._jitted_coeffs["meta_rank3"] * \
@@ -460,6 +452,17 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mat3,
                                         mbf.AddDomainIntegrator,
                                         PyVectorPartialIntegrator,
+                                        itg_params=itg3)
+                    '''
+                    dprint1(
+                        "!!!!!!!!!!! adding first order kpara correction (3)")
+                    mat4 = self._jitted_coeffs["meta_rank4"] * \
+                        slot["eta1+eta1i"]
+                    self.add_integrator(engine,
+                                        'mat4',
+                                        mat4,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorPartialPartialIntegrator,
                                         itg_params=itg3)
 
                 if self.use_xi:
@@ -581,6 +584,9 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
                     '''
+                    dprint1(
+                        "!!!!!!!!!!! adding first order kpara correction (4)")
+
                     mat4 = self._jitted_coeffs["meta_rank4t"] * \
                         slot["conj(eta1-eta1i)"]
                     self.add_integrator(engine,
