@@ -15,6 +15,11 @@
     23: Evpa (vector E para)
 
 '''
+from petram.phys.common.nlj_mixins import (NLJ_BaseDomain,
+                                           NLJ_BaseBdry,
+                                           NLJ_BasePoint,
+                                           NLJ_BasePair,
+                                           NLJ_PhysModule)
 from numba import njit
 from petram.mfem_config import use_parallel
 import sys
@@ -41,11 +46,6 @@ except:
         sys.modules[__name__].dependency_invalid = True
 
 
-from petram.phys.common.nlj_mixins import (NLJ_BaseDomain,
-                                           NLJ_BaseBdry,
-                                           NLJ_BasePoint,
-                                           NLJ_BasePair,
-                                           NLJ_PhysModule)
 class NLJ1D_DefDomain(NLJ_BaseDomain):
     data = (('label1', VtableElement(None,
                                      guilabel=None,
@@ -306,7 +306,6 @@ class NLJ1D(NLJ_PhysModule):
         self['Domain'] = NLJ1D_DefDomain()
         self['Boundary'] = NLJ1D_DefBdry()
 
-
     def verify_setting(self):
         return True, '', ''
 
@@ -325,10 +324,12 @@ class NLJ1D(NLJ_PhysModule):
         ret.append(basename+"Jt")   # Jt (J-total) (H1-3)
 
         for x in self["Domain"].walk_enabled():
-            if x.count_v_terms() > 0:
-                ret.extend(x.get_jv_names())
-            if x.count_u_terms() > 0:
-                ret.extend(x.get_ju_names())
+            if hasattr(x, "count_v_terms"):
+                if x.count_v_terms() > 0:
+                    ret.extend(x.get_jv_names())
+            if hasattr(x, "count_u_terms"):
+                if x.count_u_terms() > 0:
+                    ret.extend(x.get_ju_names())
 
         return ret
 

@@ -126,17 +126,17 @@ class NLJ_PhysModule(PhysModule):
     def nuterms(self):
         if "Domain" not in self:
             return 0
-        return np.sum([x.count_u_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_u_terms")])
+        return sum([x.count_u_terms()
+                    for x in self["Domain"].walk_enabled()
+                    if hasattr(x, "count_u_terms")])
 
     @property
     def nvterms(self):
         if "Domain" not in self:
             return 0
-        return np.sum([x.count_v_terms()
-                       for x in self["Domain"].walk_enabled()
-                       if hasattr(x, "count_v_terms")])
+        return sum([x.count_v_terms()
+                    for x in self["Domain"].walk_enabled()
+                    if hasattr(x, "count_v_terms")])
 
     @property
     def nterms(self):
@@ -221,6 +221,39 @@ class NLJ_PhysModule(PhysModule):
             return 19
         else:
             assert False, "Should not come here (unknown FES type : " + dep_var
+
+
+class NLJ_Vac(NLJ_BaseDomain):
+
+    has_essential = False
+    nlterms = []
+    has_3rd_panel = True
+
+    def __init__(self, **kwargs):
+        super(NLJ_Vac, self).__init__(**kwargs)
+
+    # def get_itg_params(self):
+    #    return (3, 3), (3, 3, (0, -1, -1))
+
+    def attribute_set(self, v):
+        super(NLJ_Vac, self).attribute_set(v)
+        v['sel_readonly'] = False
+        v['sel_index_txt'] = ''
+        return v
+
+    def has_bf_contribution(self, kfes):
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+
+        if check == 18:     # u-component
+            return True
+        elif check == 19:   # v-component
+            return True
+        else:
+            return False
+
+    def has_mixed_contribution(self):
+        return False
 
 
 class NLJ_Jhot(NLJ_BaseDomain):
@@ -350,7 +383,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                                 PyVectorPartialIntegrator,
                                                 PyVectorPartialPartialIntegrator)
 
-        from petram.phys.common.nlj_common import anbn_options
+        from petram.phys.common.nlj_common import an_options, bn_options
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars
@@ -388,7 +421,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         mbf.AddDomainIntegrator,
                                         PyVectorMassIntegrator,
                                         itg_params=itg2)
-                    if self.An_mode == anbn_options[2]:
+                    if self.An_mode == an_options[2]:
                         dprint1(
                             "!!!!!!!!!!! adding first order kpara correction (1)")
                         ccoeff = self._jitted_coeffs["sigma_rank4"] * \
@@ -454,7 +487,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
                     '''
-                    if self.An_mode == anbn_options[2]:
+                    if self.Bn_mode == bn_options[2]:
                         dprint1(
                             "!!!!!!!!!!! adding first order kpara correction (3)")
                         mat4 = self._jitted_coeffs["meta_rank4"] * \
@@ -515,7 +548,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorMassIntegrator,
                                         itg_params=itg2)
 
-                    if self.An_mode == anbn_options[2]:
+                    if self.An_mode == an_options[2]:
                         dprint1(
                             "!!!!!!!!!!! adding first order kpara correction (2)")
                         ccoeff = self._jitted_coeffs["sigma_rank4t"] * \
@@ -585,7 +618,7 @@ class NLJ_Jhot(NLJ_BaseDomain):
                                         PyVectorPartialIntegrator,
                                         itg_params=itg3)
                     '''
-                    if self.An_mode == anbn_options[2]:
+                    if self.Bn_mode == bn_options[2]:
                         dprint1(
                             "!!!!!!!!!!! adding first order kpara correction (4)")
 

@@ -147,7 +147,7 @@ class NLJ2D_DefDomain(NLJ2D_BaseDomain):
         from petram.phys.common.nlj_common import build_common_nlj_coeff
 
         self._jitted_coeffs = build_common_nlj_coeff(ind_vars, bfunc, omega,
-                                                 self._global_ns, self._local_ns,)
+                                                     self._global_ns, self._local_ns,)
 
     def has_bf_contribution(self, kfes):
         root = self.get_root_phys()
@@ -426,10 +426,12 @@ class NLJ2D(PhysModule):
         ret.append(basename+"Jt")   # Jt (J-total) (H1-3)
 
         for x in self["Domain"].walk_enabled():
-            if x.count_v_terms() > 0:
-                ret.extend(x.get_jv_names())
-            if x.count_u_terms() > 0:
-                ret.extend(x.get_ju_names())
+            if hasattr(x, "count_v_terms"):
+                if x.count_v_terms() > 0:
+                    ret.extend(x.get_jv_names())
+            if hasattr(x, "count_u_terms"):
+                if x.count_u_terms() > 0:
+                    ret.extend(x.get_ju_names())
 
         return ret
 
