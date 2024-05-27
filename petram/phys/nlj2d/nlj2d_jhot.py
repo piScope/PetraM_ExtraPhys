@@ -97,7 +97,7 @@ class NLJ2D_Jhot(NLJ_Jhot):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.common.nonlocalj_subs import jperp_terms
+        from petram.phys.common.nlj_ra import jperp_terms
 
         if self._nmax_bk != nmax or self._kprmax_bk != kprmax:
             fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
@@ -131,7 +131,7 @@ class NLJ2D_Jhot(NLJ_Jhot):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.common.nonlocalj_subs import jperp_terms
+        from petram.phys.common.nlj_ras import jperp_terms
         from petram.phys.nlj2d.nlj2d_jhot_subs import build_coefficients
 
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
@@ -163,7 +163,7 @@ class NLJ2D_Jhot(NLJ_Jhot):
         return v
 
     def plot_approx(self, evt):
-        from petram.phys.common.nonlocalj_subs import plot_terms
+        from petram.phys.common.nlj_ra import plot_terms
 
         nmax = self.ra_nmax
         kprmax = self.ra_kprmax
