@@ -184,9 +184,9 @@ class NLJ2D_Jhot(NLJ_Jhot):
                                                 'Pi(NI)', 'Eta', 'Xi')}],
             ["cyclotron harms.", None, 400, {}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
-            ["RA max kp*rho", None, 300, {}],
-            ["RA #terms.", None, 400, {}],
-            ["RA #grid.", None, 400, {}],
+            ["max kp*rho", None, 300, {}],
+            ["#terms.", None, 400, {}],
+            ["#grid.", None, 400, {}],
             ["Plot max.", None, 300, {}],
             ["<-"],
             # ["debug opts.", '', 0, {}], ])

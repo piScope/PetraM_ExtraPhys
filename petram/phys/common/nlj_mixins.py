@@ -235,6 +235,10 @@ class NLJ_Vac(NLJ_BaseDomain):
     # def get_itg_params(self):
     #    return (3, 3), (3, 3, (0, -1, -1))
 
+    @property
+    def need_e(self):
+        return True
+
     def attribute_set(self, v):
         super(NLJ_Vac, self).attribute_set(v)
         v['sel_readonly'] = False
@@ -645,3 +649,20 @@ class NLJ_Jhot(NLJ_BaseDomain):
             return
 
         dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
+
+
+class NLJ_ELD(NLJ_BaseDomain):
+
+    has_essential = False
+    nlterms = []
+    has_3rd_panel = True
+
+    def __init__(self, **kwargs):
+        super(NLJ_ELD, self).__init__(**kwargs)
+
+    # def get_itg_params(self):
+    #    return (3, 3), (3, 3, (0, -1, -1))
+
+    @property
+    def need_e(self):
+        return True
