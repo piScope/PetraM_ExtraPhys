@@ -330,6 +330,7 @@ class NLJ1D_ELD(NLJ_ELD):
 
         if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
             idx, umode, flag = self.get_dep_var_idx(col)
+            cterm = self._jitted_coeffs["cterms"][idx]
 
             if umode:
                 # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
