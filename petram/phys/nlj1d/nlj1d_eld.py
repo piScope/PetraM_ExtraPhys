@@ -294,6 +294,7 @@ class NLJ1D_ELD(NLJ_ELD):
         dep_vars = root.dep_vars
 
         jomega = self._jitted_coeffs["jomega"]
+        mbpara = self._jitted_coeffs["mbpara"]
 
         if real:
             dprint1("Add mixed cterm contribution(real)"  "r/c",
@@ -310,13 +311,13 @@ class NLJ1D_ELD(NLJ_ELD):
             cterm = self._jitted_coeffs["cterms"][idx]
 
             if umode:
-                mat3 = self._jitted_coeffs["meld_rank3"]*cterm
+                mat2 = mbpara*cterm
                 self.add_integrator(engine,
-                                    'mat3',
-                                    mat3,
+                                    'mat2',
+                                    mat2,
                                     mbf.AddDomainIntegrator,
-                                    PyVectorPartialIntegrator,
-                                    itg_params=itg3)
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
 
             else:
                 # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
@@ -327,6 +328,7 @@ class NLJ1D_ELD(NLJ_ELD):
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
+            return
 
         if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
             idx, umode, flag = self.get_dep_var_idx(col)
@@ -342,13 +344,13 @@ class NLJ1D_ELD(NLJ_ELD):
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
             else:
-                mat3 = self._jitted_coeffs["meld_rank3t"]*cterm
+                mat2 = mbpara*cterm
                 self.add_integrator(engine,
-                                    'mat3',
-                                    mat3,
+                                    'mat2',
+                                    mat2,
                                     mbf.AddDomainIntegrator,
-                                    PyVectorPartialIntegrator,
-                                    itg_params=itg3)
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
 
             return
-        dprint1("No mixed-contribution"  "r/c", row, col, is_trans)
+        dprint1("No mixed-contribution:"  "r/c ", row, col, is_trans)
