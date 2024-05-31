@@ -253,8 +253,14 @@ class NLJ1D_ELD(NLJ_ELD):
 
         if idx != 0:
             message = "Add diffusion + mass integrator contribution"
-            mat = self._jitted_coeffs["weak_lap_para"]
-            self.add_integrator(engine, 'diffusion', mat, a.AddDomainIntegrator,
+            if umode:
+                mat = self._jitted_coeffs["weak_lap_para"]
+            else:
+                mat = self._jitted_coeffs["weak_lap_parat"]
+            self.add_integrator(engine,
+                                'diffusion',
+                                mat,
+                                a.AddDomainIntegrator,
                                 PyVectorDiffusionIntegrator,
                                 itg_params=itg3)
 
@@ -264,14 +270,20 @@ class NLJ1D_ELD(NLJ_ELD):
                 dterm = self._jitted_coeffs["dterms"][idx-1].conj()
 
             dterm = self._jitted_coeffs["eye3x3"]*dterm
-            self.add_integrator(engine, 'mass', dterm, a.AddDomainIntegrator,
+            self.add_integrator(engine,
+                                'mass',
+                                dterm,
+                                a.AddDomainIntegrator,
                                 PyVectorMassIntegrator,
                                 itg_params=itg2)
 
         else:  # constant term contribution
             message = "Add mass integrator contribution"
             dterm = self._jitted_coeffs["eye3x3"]*self._jitted_coeffs["dd0"]
-            self.add_integrator(engine, 'mass', dterm, a.AddDomainIntegrator,
+            self.add_integrator(engine,
+                                'mass',
+                                dterm,
+                                a.AddDomainIntegrator,
                                 PyVectorMassIntegrator,
                                 itg_params=itg2)
         if real:
@@ -288,7 +300,6 @@ class NLJ1D_ELD(NLJ_ELD):
                                                 PyVectorPartialIntegrator,
                                                 PyVectorPartialPartialIntegrator)
 
-        from petram.phys.common.nlj_common import an_options, bn_options
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars
@@ -308,9 +319,9 @@ class NLJ1D_ELD(NLJ_ELD):
 
         if col == dep_vars[i_e]:   # E -> Ju, Jv
             idx, umode, flag = self.get_dep_var_idx(row)
-            cterm = self._jitted_coeffs["cterms"][idx]
 
             if umode:
+                cterm = self._jitted_coeffs["cterms"][idx]
                 mat2 = mbpara*cterm
                 self.add_integrator(engine,
                                     'mat2',
@@ -332,7 +343,6 @@ class NLJ1D_ELD(NLJ_ELD):
 
         if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
             idx, umode, flag = self.get_dep_var_idx(col)
-            cterm = self._jitted_coeffs["cterms"][idx]
 
             if umode:
                 # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
@@ -344,6 +354,7 @@ class NLJ1D_ELD(NLJ_ELD):
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
             else:
+                cterm = -self._jitted_coeffs["cterms"][idx]
                 mat2 = mbpara*cterm
                 self.add_integrator(engine,
                                     'mat2',

@@ -69,7 +69,7 @@ class NLJ1D_ColdEdge(NLJ_BaseBdry):
 
         if real:
             dprint1("Apply Ess.(real)" + str(self._sel_index),
-                    'kfes', kfes, dep_var, jx0, jy0, jz0)
+                    'kfes:', kfes, dep_var, jx0, jy0, jz0)
         else:
             dprint1("Apply Ess.(imag)" + str(self._sel_index),
                     'kfes:', kfes, dep_var, jx0, jy0, jz0)
