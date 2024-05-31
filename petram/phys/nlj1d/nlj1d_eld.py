@@ -354,7 +354,7 @@ class NLJ1D_ELD(NLJ_ELD):
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
             else:
-                cterm = -self._jitted_coeffs["cterms"][idx]
+                cterm = -self._jitted_coeffs["cterms"][idx].conj()
                 mat2 = mbpara*cterm
                 self.add_integrator(engine,
                                     'mat2',
