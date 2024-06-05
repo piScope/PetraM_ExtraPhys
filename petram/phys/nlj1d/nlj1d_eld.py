@@ -3,7 +3,7 @@
 This model handls imaginary part of zz component for electrons.
 
 '''
-from petram.phys.common.nlj_common import an_options, bn_options
+from petram.phys.common.nlj_common_eld import eld_options
 from petram.mfem_config import use_parallel
 from petram.phys.common.nlj_mixins import NLJ_ELD
 from mfem.common.mpi_debug import nicePrint
@@ -73,11 +73,13 @@ class NLJ1D_ELD(NLJ_ELD):
         zetamax = self.ra_zetamax
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
+        eld_option = self.eld_option
 
         from petram.phys.common.nlj_ra import eld_terms
 
         if self._mmin_bk != mmin or self._zetamax_bk != zetamax:
-            fits = eld_terms(maxzeta=zetamax, mmin=mmin, ngrid=ngrid)
+            fits = eld_terms(eld_option, maxzeta=zetamax,
+                             mmin=mmin, ngrid=ngrid)
             self._approx_computed = True
             total = 1 + len(fits[0].c_arr)
             self._nperpterms = total
@@ -103,11 +105,12 @@ class NLJ1D_ELD(NLJ_ELD):
         zetamax = self.ra_zetamax
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
+        eld_option = self.eld_option
 
         from petram.phys.common.nlj_ra import eld_terms
         from petram.phys.nlj1d.nlj1d_eld_subs import build_coefficients
 
-        fits = eld_terms(maxzeta=zetamax, mmin=mmin, ngrid=ngrid)
+        fits = eld_terms(eld_option, maxzeta=zetamax, mmin=mmin, ngrid=ngrid)
 
         self._jitted_coeffs = build_coefficients(ind_vars, omega, gui_setting, fits,
                                                  self._global_ns, self._local_ns,)
@@ -120,6 +123,7 @@ class NLJ1D_ELD(NLJ_ELD):
         v['ra_mmin'] = 4
         v['ra_ngrid'] = 800
         v['ra_pmax'] = 15
+        v['eld_option'] = eld_options[0]
         v['debug_option'] = ''
 
         return v
@@ -131,8 +135,10 @@ class NLJ1D_ELD(NLJ_ELD):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
         pmax = self.ra_pmax
+        eld_option = self.eld_option
 
-        plot_eld_terms(maxzeta=zetamax, mmin=mmin, ngrid=ngrid, pmax=pmax)
+        plot_eld_terms(eld_option, maxzeta=zetamax,
+                       mmin=mmin, ngrid=ngrid, pmax=pmax)
 
     def panel1_param(self):
         from petram.pi.panel_txt import txt_zta, txt_sub0
@@ -141,6 +147,7 @@ class NLJ1D_ELD(NLJ_ELD):
 
         panels = super(NLJ1D_ELD, self).panel1_param()
         panels.extend([
+            ["Contribution", None, 1, {"values": eld_options}],
             ["-> RA. options", None, None, {"no_tlw_resize": True}],
             ["max 1/"+txt_zta0, None, 300, {}],
             ["#terms.", None, 400, {}],
@@ -156,13 +163,19 @@ class NLJ1D_ELD(NLJ_ELD):
 
     def get_panel1_value(self):
         values = super(NLJ1D_ELD, self).get_panel1_value()
-        values.extend([self.ra_zetamax, self.ra_mmin,
+
+        if self.eld_option not in eld_options:
+            self.eld_option = eld_options[0]
+
+        values.extend([self.eld_option,
+                       self.ra_zetamax, self.ra_mmin,
                        self.ra_ngrid, self.ra_pmax, self])
 
         return values
 
     def import_panel1_value(self, v):
         check = super(NLJ1D_ELD, self).import_panel1_value(v)
+        self.eld_option = v[-6]
         self.ra_zetamax = float(v[-5])
         self.ra_mmin = int(v[-4])
         self.ra_ngrid = int(v[-3])
@@ -170,4 +183,3 @@ class NLJ1D_ELD(NLJ_ELD):
 
         #self.debug_option = str(v[-1])
         return True
-

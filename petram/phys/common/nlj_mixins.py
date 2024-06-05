@@ -667,6 +667,7 @@ class NLJ_ELD(NLJ_BaseDomain):
     @property
     def need_e(self):
         return True
+
     def get_ju_names(self):
         names = self.current_names_xyz()
         return names[0]
@@ -796,7 +797,6 @@ class NLJ_ELD(NLJ_BaseDomain):
                                                 PyVectorPartialIntegrator,
                                                 PyVectorPartialPartialIntegrator)
 
-
         root = self.get_root_phys()
         dep_vars = root.dep_vars
 
@@ -825,6 +825,16 @@ class NLJ_ELD(NLJ_BaseDomain):
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
+
+                if "cterms2" in self._jitted_coeffs:
+                    cterm2 = self._jitted_coeffs["cterms2"][idx]
+                    mat2 = mbpara*cterm2
+                    self.add_integrator(engine,
+                                        'mat2',
+                                        mat2,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=itg2)
 
             else:
                 # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
@@ -858,6 +868,16 @@ class NLJ_ELD(NLJ_BaseDomain):
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
+
+                if "cterms2" in self._jitted_coeffs:
+                    cterm2 = self._jitted_coeffs["cterms2"][idx].conj()
+                    mat2 = mbpara*cterm2
+                    self.add_integrator(engine,
+                                        'mat2',
+                                        mat2,
+                                        mbf.AddDomainIntegrator,
+                                        PyVectorMassIntegrator,
+                                        itg_params=itg2)
 
             return
         dprint1("No mixed-contribution:"  "r/c ", row, col, is_trans)
