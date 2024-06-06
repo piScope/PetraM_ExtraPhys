@@ -826,16 +826,6 @@ class NLJ_ELD(NLJ_BaseDomain):
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
 
-                if "cterms2" in self._jitted_coeffs:
-                    cterm2 = self._jitted_coeffs["cterms2"][idx]
-                    mat2 = mbpara*cterm2
-                    self.add_integrator(engine,
-                                        'mat2',
-                                        mat2,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorMassIntegrator,
-                                        itg_params=itg2)
-
             else:
                 # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
                 ccoeff = jomega.conj()
@@ -860,7 +850,14 @@ class NLJ_ELD(NLJ_BaseDomain):
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
             else:
-                cterm = -self._jitted_coeffs["cterms"][idx].conj()
+                from petram.phys.common.nlj_common_eld import eld_options
+
+                if self.eld_option == eld_options[0]:
+                    # ELD - absorption
+                    cterm = -self._jitted_coeffs["cterms"][idx].conj()
+                else:
+                    # hermitian
+                    cterm = self._jitted_coeffs["cterms"][idx].conj()
                 mat2 = mbpara*cterm
                 self.add_integrator(engine,
                                     'mat2',
@@ -868,16 +865,6 @@ class NLJ_ELD(NLJ_BaseDomain):
                                     mbf.AddDomainIntegrator,
                                     PyVectorMassIntegrator,
                                     itg_params=itg2)
-
-                if "cterms2" in self._jitted_coeffs:
-                    cterm2 = self._jitted_coeffs["cterms2"][idx].conj()
-                    mat2 = mbpara*cterm2
-                    self.add_integrator(engine,
-                                        'mat2',
-                                        mat2,
-                                        mbf.AddDomainIntegrator,
-                                        PyVectorMassIntegrator,
-                                        itg_params=itg2)
 
             return
         dprint1("No mixed-contribution:"  "r/c ", row, col, is_trans)
