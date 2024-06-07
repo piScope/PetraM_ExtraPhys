@@ -113,6 +113,7 @@ class NLJ1D_ELD(NLJ_ELD):
         fits = eld_terms(eld_option, maxzeta=zetamax, mmin=mmin, ngrid=ngrid)
 
         self._jitted_coeffs = build_coefficients(ind_vars, omega, gui_setting, fits,
+                                                 eld_option,
                                                  self._global_ns, self._local_ns,)
 
     def attribute_set(self, v):
