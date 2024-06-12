@@ -131,7 +131,7 @@ class NLJ2D_Jhot(NLJ_Jhot):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
 
-        from petram.phys.common.nlj_ras import jperp_terms
+        from petram.phys.common.nlj_ra import jperp_terms
         from petram.phys.nlj2d.nlj2d_jhot_subs import build_coefficients
 
         fits = jperp_terms(nmax=nmax+1, maxkrsqr=kprmax**2,
