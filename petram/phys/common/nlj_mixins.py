@@ -868,3 +868,236 @@ class NLJ_ELD(NLJ_BaseDomain):
 
             return
         dprint1("No mixed-contribution:"  "r/c ", row, col, is_trans)
+
+
+class NLJ_CYCLABS(NLJ_BaseDomain):
+
+    has_essential = False
+    nlterms = []
+    has_3rd_panel = True
+
+    def __init__(self, **kwargs):
+        super(NLJ_CYCLABS, self).__init__(**kwargs)
+
+    def get_itg_param(self):
+        raise NotImplementedError(
+            "get_itg_params must be implemented in subclass")
+
+    @property
+    def need_e(self):
+        return True
+
+    def get_ju_names(self):
+        names = self.current_names_xyz()
+        return names[0]
+
+    def get_jv_names(self):
+        names = self.current_names_xyz()
+        return names[1]
+
+    def count_u_terms(self):
+        return len(self.get_ju_names())
+
+    def count_v_terms(self):
+        return len(self.get_jv_names())
+
+    def current_names_xyz(self):
+        # all possible names without considering run-condition
+        baseu = self.get_root_phys().extra_vars_baseu
+        basev = self.get_root_phys().extra_vars_basev
+        udiag = [baseu + self.name() + str(i+1)
+                 for i in range(self._count_cyclabs_terms())]
+        vdiag = [basev + self.name() + str(i+1)
+                 for i in range(self._count_cyclabs_terms())]
+
+        return udiag, vdiag
+
+    def has_bf_contribution(self, kfes):
+        root = self.get_root_phys()
+        check = root.check_kfes(kfes)
+
+        dep_var = root.kfes2depvar(kfes)
+
+        names = self.current_names_xyz()
+        udiag, vdiag = names
+        all_names = udiag + vdiag
+
+        if dep_var not in all_names:
+            return False
+
+        if check == 18:     # u-component
+            return True
+        elif check == 19:   # v-component
+            return True
+        else:
+            return False
+
+    def has_mixed_contribution(self):
+        return True
+
+    def get_mixedbf_loc(self):
+        root = self.get_root_phys()
+        dep_vars = root.dep_vars
+
+        names = self.current_names_xyz()
+        udiag, vdiag = names
+
+        root = self.get_root_phys()
+        i_jt, i_e, _i_pe, _i_pa = self.get_jt_e_pe_pa_idx()
+        assert i_jt >= 0 and i_e >= 0, "Jt or E is not found in dependent variables."
+
+        loc = []
+        for name in udiag + vdiag:
+            loc.append((name, dep_vars[i_e], 1, 1))
+            loc.append((dep_vars[i_jt], name, 1, 1))
+        return loc
+
+    def add_bf_contribution(self, engine, a, real=True, kfes=0):
+
+        from petram.helper.pybilininteg import (PyVectorMassIntegrator,
+                                                PyVectorDiffusionIntegrator,)
+
+        root = self.get_root_phys()
+        dep_var = root.kfes2depvar(kfes)
+
+        idx, umode, flag = self.get_dep_var_idx(dep_var)
+
+        # ju[0], jv[0]    -- constant contribution
+        # ju[1:], jv[1:] --- diffusion contribution
+
+        itg2, itg3 = self.get_itg_params()
+
+        if idx != 0:
+            message = "Add diffusion + mass integrator contribution"
+            if umode:
+                mat = self._jitted_coeffs["weak_lap_para"]
+            else:
+                mat = self._jitted_coeffs["weak_lap_parat"]
+            self.add_integrator(engine,
+                                'diffusion',
+                                mat,
+                                a.AddDomainIntegrator,
+                                PyVectorDiffusionIntegrator,
+                                itg_params=itg3)
+
+            if umode:
+                dterm = self._jitted_coeffs["dterms"][idx-1]
+            else:
+                dterm = self._jitted_coeffs["dterms"][idx-1].conj()
+
+            dterm = self._jitted_coeffs["eye3x3"]*dterm
+            self.add_integrator(engine,
+                                'mass',
+                                dterm,
+                                a.AddDomainIntegrator,
+                                PyVectorMassIntegrator,
+                                itg_params=itg2)
+
+        else:  # constant term contribution
+            message = "Add mass integrator contribution"
+            dterm = self._jitted_coeffs["eye3x3"]*self._jitted_coeffs["dd0"]
+            self.add_integrator(engine,
+                                'mass',
+                                dterm,
+                                a.AddDomainIntegrator,
+                                PyVectorMassIntegrator,
+                                itg_params=itg2)
+        if real:
+            dprint1(message, "(real)", dep_var, idx)
+        else:
+            dprint1(message, "(imag)", dep_var, idx)
+
+    def add_mix_contribution2(self, engine, mbf, row, col, is_trans, _is_conj,
+                              real=True):
+        '''
+        fill mixed contribution
+        '''
+        from petram.helper.pybilininteg import (PyVectorMassIntegrator,
+                                                PyVectorPartialIntegrator,
+                                                PyVectorPartialPartialIntegrator)
+
+        root = self.get_root_phys()
+        dep_vars = root.dep_vars
+
+        jomega = self._jitted_coeffs["jomega"]
+        mbcross = self._jitted_coeffs["mbcross"]
+        mbcrosst = self._jitted_coeffs["mbcrosst"]
+        mbperp = self._jitted_coeffs["mbperp"]
+
+        if real:
+            dprint1("Add mixed cterm contribution(real)"  "r/c",
+                    row, col, is_trans)
+        else:
+            dprint1("Add mixed cterm contribution(imag)"  "r/c",
+                    row, col, is_trans)
+
+        i_jt, i_e, _i_pe, _i_pa = self.get_jt_e_pe_pa_idx()
+        itg2, itg3 = self.get_itg_params()
+
+        if col == dep_vars[i_e]:   # E -> Ju, Jv
+            idx, umode, flag = self.get_dep_var_idx(row)
+
+            if umode:
+                cterm = self._jitted_coeffs["cterms_s"][idx]
+                mat2 = mbperp*cterm
+                self.add_integrator(engine,
+                                    'mat2',
+                                    mat2,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
+
+                cterm = self._jitted_coeffs["cterms_d"][idx]
+                mat2 = mbcross*cterm
+                self.add_integrator(engine,
+                                    'mat2',
+                                    mat2,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
+
+            else:
+                # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
+                ccoeff = jomega.conj()
+                self.add_integrator(engine,
+                                    'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
+
+        if row == dep_vars[i_jt]:  # Ju, Jv -> Jt
+            idx, umode, flag = self.get_dep_var_idx(col)
+
+            if umode:
+                # equivalent to -1j*omega (use 1j*omega since diagnoal is one)
+                ccoeff = jomega
+                self.add_integrator(engine,
+                                    'mass',
+                                    ccoeff,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
+            else:
+                from petram.phys.common.nlj_common_eld import eld_options
+
+                cterm = -self._jitted_coeffs["cterms_s"][idx].conj()
+                mat2 = mbperp*cterm
+                self.add_integrator(engine,
+                                    'mat2',
+                                    mat2,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
+
+                cterm = -self._jitted_coeffs["cterms_d"][idx].conj()
+                mat2 = mbcrosst*cterm
+                self.add_integrator(engine,
+                                    'mat2',
+                                    mat2,
+                                    mbf.AddDomainIntegrator,
+                                    PyVectorMassIntegrator,
+                                    itg_params=itg2)
+
+            return
+        dprint1("No mixed-contribution:"  "r/c ", row, col, is_trans)
