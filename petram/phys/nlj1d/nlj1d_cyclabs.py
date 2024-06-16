@@ -120,6 +120,7 @@ class NLJ1D_CYCLABS(NLJ_CYCLABS):
         mmin = self.ra_mmin
         ngrid = self.ra_ngrid
         cyclabs_option = self.cyclabs_option
+        nharm = self.cyclabs_nharm
 
         from petram.phys.common.nlj_ra import cyclabs_terms
         from petram.phys.nlj1d.nlj1d_cyclabs_subs import build_coefficients
@@ -127,7 +128,7 @@ class NLJ1D_CYCLABS(NLJ_CYCLABS):
         fits = cyclabs_terms(
             cyclabs_option, maxzeta=zetamax, mmin=mmin, ngrid=ngrid)
 
-        self._jitted_coeffs = build_coefficients(ind_vars, omega, gui_setting, fits,
+        self._jitted_coeffs = build_coefficients(ind_vars, omega, nharm, gui_setting, fits,
                                                  cyclabs_option,
                                                  self._global_ns, self._local_ns,)
 
@@ -135,8 +136,8 @@ class NLJ1D_CYCLABS(NLJ_CYCLABS):
         v = super(NLJ1D_CYCLABS, self).attribute_set(v)
         v['sel_readonly'] = False
         v['sel_index'] = []
-        v['ra_zetamax'] = 0.85
-        v['ra_mmin'] = 4
+        v['ra_zetamax'] = 5
+        v['ra_mmin'] = 6
         v['ra_ngrid'] = 800
         v['ra_pmax'] = 15
         v['cyclabs_option'] = cyclabs_options[0]
