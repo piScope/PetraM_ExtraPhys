@@ -793,9 +793,8 @@ class NLJ_ELD(NLJ_BaseDomain):
         '''
         fill mixed contribution
         '''
-        from petram.helper.pybilininteg import (PyVectorMassIntegrator,
-                                                PyVectorPartialIntegrator,
-                                                PyVectorPartialPartialIntegrator)
+        from petram.helper.pybilininteg import PyVectorMassIntegrator
+
 
         root = self.get_root_phys()
         dep_vars = root.dep_vars
